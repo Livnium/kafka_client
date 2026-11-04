@@ -7,10 +7,13 @@ Explicit partition subscriptions build on the same read path.
 
 ## Verified compatibility
 
-Published **0.1.1 remains experimental**. This source checkout includes later
-native request-snapshot and response-validation hardening and version-selectable
-fixtures. It is not byte-for-byte the published package, and its retained `0.1.1` pubspec is not a
-new release. See the [native v1 scope and gates](doc/NATIVE_V1_SCOPE.md).
+This **0.1.2 release candidate remains experimental**. It adds native
+request-snapshot and response-validation hardening, bounded Fetch handling,
+explicit offset lookup, opt-in missing-position resolution, optional client TLS
+identities and opt-in graceful managed-consumer stop since published 0.1.1.
+The qualifications below retain their exact historical source identities;
+setting a version does not prove publication or production readiness.
+See the [native v1 scope and gates](doc/NATIVE_V1_SCOPE.md).
 
 On Linux x64 with **Dart 3.12.0**, native source **6f828d3** passed **4 plaintext and
 68 TLS/SASL-over-TLS cases per exact Kafka version**: **4.0.0, 4.0.2, 4.1.2,

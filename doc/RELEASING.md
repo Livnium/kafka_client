@@ -17,13 +17,14 @@ This checklist is preparation, **not permission to publish**.
 4. Published 0.1.1 changed the README title, with no client code changes from
    0.1.0. Later source adds native request-snapshot/response-validation hardening
    and version-selectable fixture work, with separate source-specific
-   qualification results. Its retained 0.1.1 pubspec is not a separate
-   publication, nor evidence that pub.dev contains the later changes.
+   qualification results. The approved next version is experimental 0.1.2;
+   its version metadata is not evidence that pub.dev contains these changes.
 
 ## Decisions still required for the next release
 
-- Approve the next version and whether it remains experimental. The original
-  imported `1.0.0` value was never proof of a published or stable release.
+- The selected next version is 0.1.2 and remains experimental. Publication is
+  pending a successful final package dry-run and the authorized publishing flow.
+  The original imported `1.0.0` value was never proof of a published or stable release.
 - Select supported OS/architecture/runtime and exact broker coverage. Static
   native/Flutter tags and broad SDK constraints are not executed target tests.
   See [RUNTIME_COMPATIBILITY.md](RUNTIME_COMPATIBILITY.md) and

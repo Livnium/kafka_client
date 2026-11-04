@@ -1,4 +1,17 @@
-## Unreleased native hardening
+## 0.1.2 (experimental)
+
+- Preserve experimental native-only status, existing security/retry defaults and
+  zero runtime dependencies. Browser support and idempotent production are not
+  included. Historical broker qualifications remain tied to their exact sources;
+  this version does not imply a complete final-source production qualification.
+- Validate successful ApiVersions capabilities before application dispatch.
+  Reject malformed capability ranges and duplicate API entries.
+- Handle partial final Fetch record batches only after a fully validated prefix,
+  retaining exact batch progress without skipping the partial suffix. Keep
+  incomplete first batches, malformed complete batches and standalone decoding
+  strict. Handle empty quota-throttled replies and pace subscription retries.
+- Add reproducible native CI on Dart 3.2.6/3.12.0, explicit external-fixture skip
+  reporting, bounded owned-peer cleanup and official Java record-batch fixtures.
 
 - Add separate opt-in `KafkaGroupConsumer.drainAndStop` with quiescing admission,
   a fixed monotonic grace deadline and a drain report distinct from actual owned

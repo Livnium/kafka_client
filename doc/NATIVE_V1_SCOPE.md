@@ -1,9 +1,10 @@
 # Native v1 scope and release gates
 
 This is a proposed boundary for a narrowly scoped native v1, not a declaration
-that v1 is ready or a new maintainer support commitment. Published `kafka_client`
-0.1.1 is experimental. The qualified source contains later native hardening;
-the retained pubspec version does not publish those changes.
+that v1 is ready or a new maintainer support commitment. The `kafka_client`
+0.1.2 release candidate remains experimental and contains the native hardening
+described below. Its version does not prove publication or extend historical
+qualification to the final release bytes.
 
 ## Boundary to approve before selecting a v1 version
 

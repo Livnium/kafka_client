@@ -1,6 +1,6 @@
 name: kafka_client
 description: Experimental native Dart Kafka client with tested Kafka 4.0.2 produce/fetch support.
-version: 0.1.1
+version: 0.1.2
 repository: https://github.com/Livnium/kafka_client
 issue_tracker: https://github.com/Livnium/kafka_client/issues
 topics:
