@@ -83,8 +83,12 @@ try {
   ]);
   final offset = produced!.responses.single.partitionResponses.single.baseOffset;
   final fetched = await client.fetch('dart-example', offset: offset);
-  for (final record in fetched.topics.single.partitions.single.records) {
-    print('${record.offset}: ${record.value}');
+  for (final topic in fetched.topics) {
+    for (final partition in topic.partitions) {
+      for (final record in partition.records) {
+        print('${record.offset}: ${record.value}');
+      }
+    }
   }
 } finally {
   await client.close();
@@ -100,6 +104,9 @@ Fetch is inclusive and stateless: its default offset is literal zero, and calls
 do not maintain a cursor. Track positions separately for each partition from
 successfully processed records' absolute offsets, not from the number returned.
 An empty response does not itself advance a position or prove the end of the log.
+A quota-only reply has no topics and a positive `throttleTimeMs`. A one-shot
+Fetch returns it without waiting or retrying; respect that duration before your
+next call and retain the same offset. Subscriptions enforce this wait themselves.
 The client does not assign partitions, look up earliest/latest offsets or manage
 retention/out-of-range recovery. Separate explicit committed-offset methods are
 available; Fetch itself neither restores nor commits progress automatically.

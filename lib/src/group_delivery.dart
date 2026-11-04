@@ -82,7 +82,9 @@ class _Batch {
   final Queue<KafkaRecord> records;
   final int? end;
   final int throttleMs;
-  _Batch(this.assignment, this.cursor, this.records, this.end, this.throttleMs);
+  final bool quotaOnly;
+  _Batch(this.assignment, this.cursor, this.records, this.end, this.throttleMs,
+      {this.quotaOnly = false});
 }
 
 /// Internal seam for deterministic scheduling and adversarial response tests.
@@ -254,6 +256,11 @@ class GroupDeliveryController {
     if (!_active || !identical(token, assignment)) {
       return _Batch(token, cursor, Queue<KafkaRecord>(), null, 0);
     }
+    if (response.topics.isEmpty && response.throttleTimeMs > 0) {
+      return _Batch(
+          token, cursor, Queue<KafkaRecord>(), null, response.throttleTimeMs,
+          quotaOnly: true);
+    }
     if (response.throttleTimeMs < 0 ||
         response.topics.length != 1 ||
         response.topics.single.name != cursor.topic ||
@@ -333,7 +340,7 @@ class GroupDeliveryController {
         _buffer = null;
         if (!_active) break;
         if (batch.end != null) batch.cursor.offset = batch.end! + 1;
-        index = (index + 1) % _cursors.length;
+        if (!batch.quotaOnly) index = (index + 1) % _cursors.length;
         final throttle = Duration(milliseconds: batch.throttleMs);
         final delay = batch.end == null && pollInterval > throttle
             ? pollInterval

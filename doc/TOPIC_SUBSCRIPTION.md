@@ -34,6 +34,9 @@ Stream<KafkaTopicRecord> subscribe(
 - `pollInterval` is the delay after a response with no validated batch progress.
   A larger broker throttle takes precedence. Responses that do make progress
   observe the broker throttle without adding the empty-poll delay.
+  A quota reply with no topics and a positive throttle waits before polling the
+  same partition and offset again, without delivering records or moving a cursor.
+  Pause, cancellation and client close retain their usual admission boundaries.
 - `retryDelay` separates subscription-level retries after a high-level Fetch
   exhausts its own read-safe retry policy. Both delays must be between one
   millisecond and one minute, inclusive.

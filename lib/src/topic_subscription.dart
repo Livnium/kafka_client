@@ -146,6 +146,13 @@ class TopicSubscriptionController {
         if (response.throttleTimeMs < 0) {
           throw const FormatException('Negative broker throttle duration');
         }
+        if (response.topics.isEmpty && response.throttleTimeMs > 0) {
+          // A valid quota reply has no partition result. Keep this cursor and
+          // polling position, and let close/cancel interrupt the throttle wait.
+          final throttle = Duration(milliseconds: response.throttleTimeMs);
+          await _waits.wait(pollInterval > throttle ? pollInterval : throttle);
+          continue;
+        }
         if (response.topics.length != 1 ||
             response.topics.single.name != topic ||
             response.topics.single.partitions.length != 1 ||

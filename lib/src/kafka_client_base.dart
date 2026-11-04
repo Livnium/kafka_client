@@ -1244,6 +1244,9 @@ class KafkaClient {
   /// are maintained. Track each partition's position from processed absolute
   /// record offsets; an empty response does not itself advance that position.
   /// Retention and out-of-range recovery are application-managed.
+  /// A quota-throttled reply can have no topics and a positive throttle duration.
+  /// This one-shot method returns that reply without a hidden retry or wait;
+  /// standalone callers must respect its throttle before polling again.
   ///
   /// [maxWaitMs] is a broker wait, not the client's request deadline. [maxBytes]
   /// is a requested soft limit: Kafka may return an oversized first batch.
@@ -1374,6 +1377,9 @@ class KafkaClient {
       recovery.excluded.add(_brokerKey(broker));
       throw _TlsFetchLeaderUnavailable();
     }
+    // Kafka Fetch v4 quota responses contain only a positive throttle and an
+    // empty topic array. Preserve those diagnostics without inventing offsets.
+    if (result.topics.isEmpty && result.throttleTimeMs > 0) return result;
     if (result.topics.length != 1 ||
         result.topics.single.name != topic ||
         result.topics.single.partitions.length != 1 ||

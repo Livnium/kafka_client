@@ -122,13 +122,16 @@ Future<int> runSecureExample(SecureExampleConfig config) async {
     // each high-level Fetch can perform several bounded low-level requests.
     for (var attempt = 0; attempt < 5; attempt++) {
       final fetched = await client.fetch(config.topic, offset: offset);
-      final records = fetched.topics.single.partitions.single.records;
+      final records = fetched.topics.isEmpty
+          ? const <KafkaRecord>[]
+          : fetched.topics.single.partitions.single.records;
       if (verifyAcknowledgedRecord(records,
           offset: offset, expected: expected)) {
         return offset;
       }
       if (attempt < 4) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await Future<void>.delayed(
+            Duration(milliseconds: max(100, fetched.throttleTimeMs)));
       }
     }
     throw StateError('Acknowledged record not visible within read attempts');

@@ -58,6 +58,9 @@ class _Peer {
   String? positionFailure;
   int storedOffset = 0;
   List<int> Function(int offset, int partition)? recordSet;
+  int quotaReplies = 0;
+  int quotaThrottleMs = 35;
+  String? quotaTopic;
   final fetches = <int>[];
   final joinReceived = Completer<void>();
   final positionsReceived = Completer<void>();
@@ -223,6 +226,18 @@ class _Peer {
               r.readInt32();
               expect(r.isEOF, isTrue);
               fetches.add(offset);
+              if (quotaReplies > 0) {
+                quotaReplies--;
+                b
+                  ..addInt32(quotaThrottleMs)
+                  ..addInt32(quotaTopic == null ? 0 : 1);
+                if (quotaTopic != null) {
+                  b
+                    ..addString(quotaTopic)
+                    ..addInt32(0);
+                }
+                break;
+              }
               b
                 ..addInt32(0)
                 ..addInt32(1)
@@ -688,5 +703,140 @@ void main() {
     } finally {
       await client.close();
     }
+  });
+
+  test('standalone Fetch returns quota diagnostics without waiting or replay',
+      () async {
+    peer
+      ..quotaReplies = 1
+      ..quotaThrottleMs = 2147483647;
+    final client = KafkaClient(brokers: [peer.broker], maxReadRetries: 3);
+    try {
+      final response = await client
+          .fetch('topic', offset: 7)
+          .timeout(const Duration(seconds: 2));
+      expect(response.throttleTimeMs, 2147483647);
+      expect(response.topics, isEmpty);
+      expect(peer.fetches, [7]);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(peer.fetches, [7]);
+      expect(peer.commits, isEmpty);
+      expect(peer.joins, 0);
+    } finally {
+      await client.close();
+    }
+  });
+
+  for (final throttle in [0, -1]) {
+    test('standalone Fetch rejects empty quota reply with throttle $throttle',
+        () async {
+      peer
+        ..quotaReplies = 1
+        ..quotaThrottleMs = throttle;
+      final client = KafkaClient(brokers: [peer.broker], maxReadRetries: 3);
+      try {
+        await expectLater(
+            client.fetch('topic', offset: 7), throwsFormatException);
+        expect(peer.fetches, [7]);
+      } finally {
+        await client.close();
+      }
+    });
+  }
+
+  for (final topic in ['wrong', 'topic']) {
+    test('positive throttle cannot hide nonempty malformed topic $topic',
+        () async {
+      peer
+        ..quotaReplies = 1
+        ..quotaTopic = topic;
+      final client = KafkaClient(brokers: [peer.broker], maxReadRetries: 3);
+      try {
+        await expectLater(
+            client.fetch('topic', offset: 7), throwsFormatException);
+        expect(peer.fetches, [7]);
+      } finally {
+        await client.close();
+      }
+    });
+  }
+
+  test('native subscription waits and polls unchanged cursor after quota',
+      () async {
+    peer.quotaReplies = 1;
+    final client = KafkaClient(brokers: [peer.broker], maxReadRetries: 3);
+    try {
+      final records = await client
+          .subscribe('topic', startOffsets: {0: 0})
+          .take(1)
+          .toList()
+          .timeout(const Duration(seconds: 3));
+      expect(records.single.offset, 0);
+      expect(peer.fetches, [0, 0]);
+      expect(peer.commits, isEmpty);
+      expect(peer.joins, 0);
+    } finally {
+      await client.close();
+    }
+  });
+
+  test('managed quota result admits no acknowledgement or commit', () async {
+    peer.quotaReplies = 1;
+    peer.onCommit = (commit) => commit.reply();
+    final callbacks = <int>[];
+    final run = make().run((record) => callbacks.add(record.offset));
+    await _until(() =>
+        peer.fetches.contains(1) ||
+        consumer!.state == KafkaGroupConsumerState.closed);
+    consumer!.stop();
+    final result = await run.timeout(const Duration(seconds: 3));
+    expect(result.reason, KafkaGroupConsumerStopReason.cancelled);
+    expect(result.error, isNull);
+    expect(callbacks, [0]);
+    expect(peer.fetches.take(3), [0, 0, 1]);
+    expect(peer.commits.map((commit) => commit.offsets), [
+      {0: 1}
+    ]);
+    expect(peer.joins, 1);
+    expect(peer.positionReads, 1);
+  });
+
+  test('managed stop interrupts maximum quota wait without another Fetch',
+      () async {
+    peer
+      ..quotaReplies = 1
+      ..quotaThrottleMs = 2147483647;
+    var callbacks = 0;
+    final run = make().run((_) {
+      callbacks++;
+    });
+    await _until(() => peer.fetches.isNotEmpty);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    consumer!.stop();
+    final result = await run.timeout(const Duration(seconds: 3));
+    expect(result.reason, KafkaGroupConsumerStopReason.cancelled);
+    expect(callbacks, 0);
+    expect(peer.fetches, [0]);
+    expect(peer.commits, isEmpty);
+    expect(peer.joins, 1);
+  });
+
+  test('heartbeat revocation interrupts quota wait without data or commit',
+      () async {
+    peer
+      ..quotaReplies = 1
+      ..quotaThrottleMs = 2147483647;
+    var callbacks = 0;
+    final run = make(maxRejoins: 0).run((_) {
+      callbacks++;
+    });
+    await _until(() => peer.fetches.isNotEmpty);
+    peer.rejectHeartbeat = true;
+    final result = await run.timeout(const Duration(seconds: 3));
+    expect(result.reason, KafkaGroupConsumerStopReason.rejoinLimit);
+    expect(callbacks, 0);
+    expect(peer.fetches, [0]);
+    expect(peer.commits, isEmpty);
+    expect(peer.joins, 1);
   });
 }

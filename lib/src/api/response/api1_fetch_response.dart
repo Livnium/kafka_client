@@ -11,6 +11,7 @@ class FetchResponse extends KafkaResponse {
   final int throttleTimeMs;
 
   /// Topic results containing records and per-partition errors.
+  /// Quota-throttled replies can omit every topic; inspect [throttleTimeMs].
   final List<FetchTopicResponse> topics;
 
   /// Creates a response with the original request correlation ID.

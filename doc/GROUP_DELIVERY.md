@@ -127,8 +127,12 @@ and discards late results. See [GROUP_FETCH_RECOVERY.md](GROUP_FETCH_RECOVERY.md
 
 After the selected bounded Fetch policy is exhausted, any
 Fetch error terminates delivery and closes membership; there is no outer
-indefinite retry. Positive Fetch throttle is respected, but this does not add the
-unsupported membership quota-throttling policy. No Produce, OffsetFetch or
+indefinite retry. A positive-throttle response with no topics is a no-data quota
+reply: the pump waits without moving its cursor or admitting records, and then
+polls that same partition. The wait is interrupted by cancellation or revocation;
+membership heartbeats remain independent. Positive Fetch throttle is respected,
+but this does not add the unsupported membership quota-throttling policy.
+No Produce, OffsetFetch or
 OffsetCommit is issued by delivery, and no automatic commit replay is added.
 
 ## Remaining work and evidence
