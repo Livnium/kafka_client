@@ -189,3 +189,13 @@ failover/failure recovery or endurance. The run did not qualify graceful stop,
 broader broker matrices, a release or general production readiness. Earlier
 Kafka 4.0.2 checks remain attributed to `81761d2`, not a two-version rerun of
 this newer source.
+
+### Later combined PEM mTLS and graceful-stop observation
+
+Separate [copied-adapter checks](GROUP_GRACEFUL_MTLS_QUALIFICATION.md) at exact
+source `b188ec5` passed 32 cases across Kafka 4.0.2/4.4.0, Dart 3.2.6/3.12.0 and
+required-client-certificate SSL/SASL_SSL PLAIN. The adapter supplies PEM identities
+to the existing grace cases; it is not an unmodified stock-fixture claim.
+This does not qualify PKCS12-plus-grace, production PKI lifecycle, certificate
+rejection/rotation/revocation, mobile, broker failover or endurance. Earlier
+standalone mTLS observations retain their original source and scope.

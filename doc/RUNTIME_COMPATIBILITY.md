@@ -41,6 +41,12 @@ single-broker/partition observations, not mTLS-plus-grace, failover, endurance
 or refreshed ordinary SDK suites. Earlier 4.0.2 grace checks remain attributed
 to `693f509`.
 
+Separate [combined copied-adapter checks](GROUP_GRACEFUL_MTLS_QUALIFICATION.md)
+at `b188ec5` passed 32 PEM mTLS-plus-grace cases across Kafka 4.0.2/4.4.0 and
+Dart 3.2.6/3.12.0 on Linux x64. These are single-broker/partition observations,
+not PKCS12-plus-grace, mobile, production PKI, failover or endurance qualification.
+They do not change the source attribution of the earlier standalone checks.
+
 Historical operational evidence uses standalone Dart 3.2.6 and 3.12.0 on one
 Linux x64 cloud host with Kafka 4.0.2; it does not extend the full operational
 suite to the other broker versions or the latest source.

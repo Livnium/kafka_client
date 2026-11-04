@@ -109,6 +109,10 @@ They separately record 24 Kafka 4.4.0 cases at `46c6355` across Dart 3.2.6/3.12.
 and plaintext/server-authenticated TLS/SASL_SSL PLAIN, one broker/partition.
 This is distinct from `693f509`/4.0.2 and does not qualify mTLS-plus-grace or
 broader failure/load scenarios.
+Later [combined copied-adapter observations](GROUP_GRACEFUL_MTLS_QUALIFICATION.md)
+at `b188ec5` cover 32 PEM mTLS-plus-grace cases on Kafka 4.0.2/4.4.0 and both
+SDKs, one broker/partition. They do not qualify PKCS12-plus-grace, production
+PKI lifecycle, failover or endurance, or make the stock grace fixture mTLS-aware.
 
 Strict-default TLS termination during some failover sequences is a documented
 availability limit, not a claim that transparent failover passed. Default-off

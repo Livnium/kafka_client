@@ -17,6 +17,12 @@ plaintext/server-authenticated TLS/SASL_SSL PLAIN. They do not combine mTLS with
 grace, test broker failover or extend the earlier `693f509`/4.0.2 evidence to
 the newer source.
 
+Later [combined PEM mTLS-plus-grace checks](GROUP_GRACEFUL_MTLS_QUALIFICATION.md)
+at `b188ec5` passed 32 cases across Kafka 4.0.2/4.4.0 and both SDKs through an
+external copied-test adapter, not an unmodified stock test. They retain their
+single-broker/partition scope and do not qualify PKCS12-plus-grace, production
+PKI, broker failover or endurance.
+
 ## Recorded six-version native qualification, 2026-11-04
 
 This evidence qualifies native source `6f828d306cb1f6c3adc0638f9ba7ac727d1cf368`

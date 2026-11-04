@@ -258,6 +258,10 @@ at source **46c6355** passed 24 requested cases across both tested SDKs and
 plaintext/server-authenticated TLS/SASL_SSL PLAIN. This single-broker result is
 not mTLS-plus-grace, failover or endurance qualification; earlier 4.0.2 evidence
 remains scoped to **693f509**.
+Later [combined PEM mTLS/grace observations](doc/GROUP_GRACEFUL_MTLS_QUALIFICATION.md)
+at **b188ec5** passed 32 cases across Kafka 4.0.2/4.4.0 and both SDKs using an
+external copied-test adapter, one broker/partition. They do not qualify
+PKCS12-plus-grace, production PKI, failover or endurance.
 A separate default-off coordinator-loss policy (`doc/GROUP_COORDINATOR_RECOVERY.md`)
 allows narrowly classified fresh-generation replacement with the same drain and
 commit-safety requirements; it does not enable group-discovery TLS fallback.

@@ -10,6 +10,9 @@
   Later exact source `46c6355` separately passed 24 requested Kafka 4.4.0 grace
   cases across both SDKs and plaintext/server-authenticated TLS/SASL_SSL PLAIN,
   without mTLS-plus-grace, failover or endurance qualification.
+  A separate external copied-test adapter at `b188ec5` subsequently passed 32
+  PEM mTLS-plus-grace cases across Kafka 4.0.2/4.4.0 and both SDKs, without
+  PKCS12-plus-grace, production-PKI, failover or endurance claims.
 
 - Add optional, bounded and redacted PEM/PKCS12 client certificate identities
   through native SecurityContext, preserving independent server trust, hostname

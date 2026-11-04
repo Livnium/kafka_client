@@ -159,3 +159,13 @@ Neither result qualifies mTLS-plus-grace, sustained load, endurance, production
 PKI, other platforms, producer recovery, exactly-once effects or published
 package bytes. A grace report bounds authority/admission, not arbitrary
 application work, actual closure or external-effect completion.
+
+## Later combined PEM mTLS observation
+
+At `b188ec5`, a separate [external copied-test adapter](GROUP_GRACEFUL_MTLS_QUALIFICATION.md)
+passed 32 combined cases across Kafka 4.0.2/4.4.0, both SDKs and required-client-
+certificate SSL/SASL_SSL PLAIN. The original case/helper block was unchanged,
+but the stock fixture has no client-identity hook: this is not an unmodified
+stock-test claim. It covers PEM only, not PKCS12-plus-grace or broader PKI,
+failover/endurance behavior. Earlier server-authenticated observations above
+remain attributed to their own sources and configurations.
