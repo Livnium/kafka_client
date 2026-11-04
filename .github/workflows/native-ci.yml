@@ -1,0 +1,84 @@
+name: Native Dart CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: native-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dart:
+    name: Dart ${{ matrix.sdk }} / Linux x64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: ['3.2.6', '3.12.0']
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+        with:
+          sdk: ${{ matrix.sdk }}
+          architecture: x64
+      - name: Restore the SDK-specific CI dependency snapshot
+        run: |
+          mkdir -p .dart_tool/ci
+          cp .github/ci/dependencies/dart-${{ matrix.sdk }}.lock pubspec.lock
+          {
+            printf 'Source: %s\n' "$GITHUB_SHA"
+            dart --version
+            uname -a
+            cat /etc/os-release
+            printf 'Runner image: %s (%s)\n' "$ImageOS" "$ImageVersion"
+            python3 --version
+            openssl version
+          } > .dart_tool/ci/environment.txt
+          dart pub get --enforce-lockfile | tee .dart_tool/ci/pub-get.txt
+          cmp .github/ci/dependencies/dart-${{ matrix.sdk }}.lock pubspec.lock
+          cp pubspec.lock .dart_tool/ci/pubspec.lock
+      - name: Check active Dart source formatting
+        run: dart format --output=none --set-exit-if-changed lib test example tool
+      - name: Analyze active source
+        run: dart analyze --fatal-infos
+      - name: Run ordinary native Dart regressions
+        id: tests
+        run: |
+          dart test --reporter expanded \
+            --file-reporter json:.dart_tool/ci/test-results.jsonl \
+            | tee .dart_tool/ci/tests.txt
+      - name: Disclose test results and external-fixture skips
+        if: ${{ always() && steps.tests.outcome != 'skipped' }}
+        run: python3 tool/summarize_ci_tests.py .dart_tool/ci/test-results.jsonl --output "$GITHUB_STEP_SUMMARY"
+      - name: Retain dependency and test evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-dart-${{ matrix.sdk }}-${{ github.sha }}
+          path: .dart_tool/ci/
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn
+
+  fixture-runner-regressions:
+    name: Fixture-runner Python regressions (no brokers)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Test fixture tooling without starting Kafka
+        run: python3 -m unittest discover -s tool -p 'test_*.py'

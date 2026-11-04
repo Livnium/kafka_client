@@ -371,6 +371,10 @@ dart analyze --fatal-infos
 dart test
 ```
 
+The [native CI baseline](doc/NATIVE_CI.md) defines pinned SDK/dependency checks
+and reports external-fixture skips separately. Its ordinary regressions are not
+a substitute for the real-broker qualification below.
+
 The ordinary test run skips real-broker tests. Run those explicitly using Java 17+
 and a SHA512-verified official Kafka **4.0.2** binary distribution:
 

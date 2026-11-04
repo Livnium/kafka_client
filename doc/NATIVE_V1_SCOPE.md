@@ -61,8 +61,11 @@ the retained pubspec version does not publish those changes.
   and OS lifecycle/trust behavior only if those are in the release promise.
   A Linux headless engine smoke does not qualify mobile or desktop apps.
 - [ ] Put the selected fixtures and result/cleanup checks in the maintainer's
-  actual CI and establish how required gates are enforced. No workflow or CI
-  account setup is asserted by this document.
+  actual CI and establish how required gates are enforced. An
+  [ordinary native CI baseline](NATIVE_CI.md) is defined for the two tested SDKs;
+  it discloses fixture skips and does not run real brokers. Remote workflow
+  success, CI account setup and required-check enforcement are not established
+  by adding the workflow files.
 - [ ] Complete the [next-release payload checklist](RELEASING.md), review
   documentation and license/notices, choose the next version, then obtain
   explicit authorization for external validation and publication.
