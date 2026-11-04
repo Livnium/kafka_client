@@ -1,0 +1,178 @@
+{
+  "cases": [
+    {
+      "lastBatchOffset": "102",
+      "name": "create-time-binary-headers-negative-delta",
+      "records": [
+        {
+          "headers": [
+            [
+              "z4Dwn5mC",
+              null
+            ],
+            [
+              "z4Dwn5mC",
+              ""
+            ],
+            [
+              "",
+              "/w=="
+            ]
+          ],
+          "key": "AP8=",
+          "offset": "100",
+          "timestamp": "1700000000100",
+          "value": "AQI="
+        },
+        {
+          "headers": [],
+          "key": null,
+          "offset": "101",
+          "timestamp": "1700000000000",
+          "value": null
+        },
+        {
+          "headers": [],
+          "key": "",
+          "offset": "102",
+          "timestamp": "1700000000200",
+          "value": ""
+        }
+      ],
+      "wire": "AAAAAAAAAGQAAABfAAAABwKa7CErAAAAAAACAAABi8/laGQAAAGLz+VoyP//////////////////AAAAAzoAAAAEAP8EAQIGDM+A8J+ZggEMz4Dwn5mCAAAC/w4AxwECAQEADgDIAQQAAAA="
+    },
+    {
+      "lastBatchOffset": "201",
+      "name": "log-append-time",
+      "records": [
+        {
+          "headers": [],
+          "key": null,
+          "offset": "200",
+          "timestamp": "1700000999000",
+          "value": "AQ=="
+        },
+        {
+          "headers": [],
+          "key": null,
+          "offset": "201",
+          "timestamp": "1700000999000",
+          "value": "Ag=="
+        }
+      ],
+      "wire": "AAAAAAAAAMgAAABBAAAABwLQ8V1SAAgAAAABAAABi8/laAAAAAGLz/SmWP//////////////////AAAAAg4AAAABAgEADgAUAgECAgA="
+    },
+    {
+      "lastBatchOffset": "320",
+      "name": "compacted-sparse-prefix-tail",
+      "records": [
+        {
+          "headers": [],
+          "key": "AQ==",
+          "offset": "305",
+          "timestamp": "1700000000000",
+          "value": "Ag=="
+        },
+        {
+          "headers": [],
+          "key": "Aw==",
+          "offset": "310",
+          "timestamp": "1700000000100",
+          "value": "BA=="
+        }
+      ],
+      "wire": "AAAAAAAAASwAAABEAAAABwKhBuvBAAAAAAAUAAABi8/laAAAAAGLz+VoZP//////////////////AAAAAhAAAAoCAQICABIAyAEUAgMCBAA="
+    },
+    {
+      "lastBatchOffset": "420",
+      "name": "delete-horizon-sparse",
+      "records": [
+        {
+          "headers": [],
+          "key": "AQ==",
+          "offset": "405",
+          "timestamp": "1700000000000",
+          "value": null
+        },
+        {
+          "headers": [],
+          "key": "Ag==",
+          "offset": "410",
+          "timestamp": "1700000000100",
+          "value": "Aw=="
+        }
+      ],
+      "wire": "AAAAAAAAAZAAAABIAAAABwKsDDe7AEAAAAAUAAABi9XbSQAAAAGLz+VoZP//////////////////AAAAAhQA/4OvXwoCAQEAFgC3gq9fFAICAgMA"
+    },
+    {
+      "lastBatchOffset": "525",
+      "name": "compacted-empty",
+      "records": [],
+      "wire": "AAAAAAAAAfQAAAAxAAAAAwIQtrQrAAAAAAAZ//////////8AAAGLz+VoAAAAAAAAAAA3AAMAAAAHAAAAAA=="
+    },
+    {
+      "lastBatchOffset": "600",
+      "name": "commit-control",
+      "records": [],
+      "wire": "AAAAAAAAAlgAAABCAAAAAQKh5pxRADAAAAAAAAABi8/laAAAAAGLz+VoAAAAAAAAAAA3AAP/////AAAAASAAAAAIAAAAAQwAAAAAAAMA"
+    },
+    {
+      "lastBatchOffset": "601",
+      "name": "abort-control",
+      "records": [],
+      "wire": "AAAAAAAAAlkAAABCAAAAAQJV2EoZADAAAAAAAAABi8/laAAAAAGLz+VoAAAAAAAAAAA3AAP/////AAAAASAAAAAIAAAAAAwAAAAAAAMA"
+    },
+    {
+      "lastBatchOffset": "700",
+      "name": "transactional-visible-read-uncommitted",
+      "records": [
+        {
+          "headers": [],
+          "key": "AQ==",
+          "offset": "700",
+          "timestamp": "1700000000000",
+          "value": "Ag=="
+        }
+      ],
+      "wire": "AAAAAAAAArwAAAA6AAAAAQKBAeP9ABAAAAAAAAABi8/laAAAAAGLz+VoAAAAAAAAAAA3AAMAAAAHAAAAARAAAAACAQICAA=="
+    },
+    {
+      "lastBatchOffset": "9007199254740993",
+      "name": "above-js-safe-integer",
+      "records": [
+        {
+          "headers": [],
+          "key": null,
+          "offset": "9007199254740993",
+          "timestamp": "9007199254740993",
+          "value": "AQ=="
+        }
+      ],
+      "wire": "ACAAAAAAAAEAAAA5AAAABwI4gTFPAAAAAAAAACAAAAAAAAEAIAAAAAAAAf//////////////////AAAAAQ4AAAABAgEA"
+    },
+    {
+      "lastBatchOffset": "800",
+      "name": "no-timestamp-sentinel",
+      "records": [
+        {
+          "headers": [],
+          "key": null,
+          "offset": "800",
+          "timestamp": "-1",
+          "value": "AQ=="
+        }
+      ],
+      "wire": "AAAAAAAAAyAAAAA5AAAABwLt+T6qAAAAAAAA////////////////////////////////////////AAAAAQ4AAAABAgEA"
+    }
+  ],
+  "formatVersion": 1,
+  "oracle": {
+    "generator": "tool/RecordBatchOracle.java",
+    "generatorSha256": "18af978f72a2d15c501d6a4fb0afb3a86e5028712a6c95ff189a35094ad8bd32",
+    "jarsSha256": {
+      "kafka-clients-4.0.2.jar": "90ef3a38696ee29e4f8dec2b2910bd31d8da0e69cb53a62a231a7d05fea32ad9",
+      "slf4j-api-1.7.36.jar": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0"
+    },
+    "kafkaVersion": "4.0.2"
+  }
+}

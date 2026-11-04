@@ -19,6 +19,15 @@ the JDK, Dart/Flutter SDKs and resolved Dart development packages are not bundle
 in the curated package. Those dependencies retain their own licenses; review
 their notices separately if bundling them in another distribution.
 
+`tool/RecordBatchOracle.java` is a project-authored, broker-free harness using
+Apache Kafka 4.0.2 record APIs. Its checked-in synthetic wire/expected-value
+fixtures are in `test/fixtures/record_batch_java_4_0_2.json`; no Kafka implementation
+source, JAR or Java class file is embedded there. Optional regeneration uses the
+external Kafka client and SLF4J API JARs identified by exact hashes in
+`doc/RECORD_BATCH_ORACLE.md`. Neither is a Dart runtime dependency or bundled JAR.
+Kafka's existing upstream 4.0.2 notice and the root Apache-2.0 license remain
+unchanged. Ordinary regression tests consume the JSON without these Java tools.
+
 The following retained development material is excluded by `.pubignore`:
 `verification/` and `doc/api/`. Their notices are retained here to distinguish the
 full development repository from the smaller package, not to imply that those
