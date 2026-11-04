@@ -1,0 +1,111 @@
+{
+  "observed_date_utc": "2026-11-04",
+  "implementation_commit": "693f509a0705dab30a23f832cb2899b44ea8cda2",
+  "implementation_tree": "c81006f0d3f530e5bbcf57157c26160a8ebf3fe5",
+  "environment": {
+    "os": "Debian GNU/Linux 13, Linux x64",
+    "java": "OpenJDK 21.0.12.1",
+    "openssl": "3.5.7"
+  },
+  "sources_sha256": {
+    "lib/src/group_consumer.dart": "f7d1c859771c09db17913006e5ff703c9df60329a22f8b6dd8cfd1b1de20703b",
+    "lib/kafka_group.dart": "27bf87b1ebc485c00eb000c9f92b2f63996899e95a2de3fc73b17da828832dd4",
+    "test/group_consumer_graceful_stop_test.dart": "cb145c8e0e84dfd08497a29d0c2ed9ff4d1389bf89d6b11bb9173235a9a974d3",
+    "test/group_consumer_graceful_stop_integration_test.dart": "d750d91a95e8522325d2c9dbc3d70bcfed804fe2695e6224cacf5aacdea9b8c1"
+  },
+  "ordinary_suites": [
+    {
+      "dart": "3.2.6",
+      "passed": 1454,
+      "failed": 0,
+      "skipped": 382,
+      "failed_suite_loads": 0,
+      "format": "passed",
+      "analyze": "passed",
+      "dependency_snapshot": ".github/ci/dependencies/dart-3.2.6.lock",
+      "dependency_snapshot_sha256": "a7b96c3d3cf88a536c5098868674c841d56ba9c336910ccb857216fe87f3bed7"
+    },
+    {
+      "dart": "3.12.0",
+      "passed": 1454,
+      "failed": 0,
+      "skipped": 382,
+      "failed_suite_loads": 0,
+      "format": "passed",
+      "analyze": "passed",
+      "dependency_snapshot": ".github/ci/dependencies/dart-3.12.0.lock",
+      "dependency_snapshot_sha256": "51d1d3443f8d827ce6c9182aae86e7adbb5e3439d8e14d1c29eac0d57f9005f3"
+    }
+  ],
+  "incomplete_attempt": {
+    "dart": "3.12.0",
+    "outcome": "failed/incomplete",
+    "cause": "Shared /tmp exhausted during suite compilation (ENOSPC). Retained separately; successful rerun used an owned workspace temp directory. No client fix was applied for this environment failure."
+  },
+  "python_fixture_runner_regressions": {
+    "passed": 283,
+    "failed": 0,
+    "real_brokers_started": false
+  },
+  "independent_review": {
+    "implementation_commit": "693f509a0705dab30a23f832cb2899b44ea8cda2",
+    "blocking_findings": 0,
+    "graceful_stop_unit_tests_passed": 47
+  },
+  "broker": {
+    "kafka": "4.0.2",
+    "archive_sha512": "b854b5ee761f04f8bd27f18576590cd54f4890d5dc103818f3db23c1a5b04de27f8465d4042f7cdf463dbfa6f149dafca92b60f56b5e2136861cf8d766f1a56b",
+    "clients_jar_sha256": "90ef3a38696ee29e4f8dec2b2910bd31d8da0e69cb53a62a231a7d05fea32ad9",
+    "runs": [
+      {
+        "dart": "3.12.0",
+        "mode": "plain",
+        "passed": 4,
+        "skipped_other_fixture_mode": 8,
+        "exit": 0
+      },
+      {
+        "dart": "3.12.0",
+        "mode": "secure",
+        "passed": 8,
+        "skipped_other_fixture_mode": 4,
+        "exit": 0
+      },
+      {
+        "dart": "3.2.6",
+        "mode": "plain",
+        "passed": 4,
+        "skipped_other_fixture_mode": 8,
+        "exit": 0
+      },
+      {
+        "dart": "3.2.6",
+        "mode": "secure",
+        "passed": 8,
+        "skipped_other_fixture_mode": 4,
+        "exit": 0
+      }
+    ],
+    "total_executed": 24,
+    "cases_per_mode": [
+      "Reentrant grace retains membership during a 7-second pending callback then confirms only its next-offset commit",
+      "Disabled commit drains without creating a stored offset",
+      "Grace expiry reports pending callback, preserves actual closed barrier and prevents late commit admission",
+      "A competing member causes heartbeat rebalance rejection, no stale commit and no replacement generation"
+    ],
+    "cleanup": {
+      "all_seven_owned_ports_closed": true,
+      "secure_private_directories_absent": true,
+      "plaintext_brokers_stopped": true,
+      "plaintext_data_and_control_removed": true,
+      "reported_cleanup_errors": []
+    }
+  },
+  "scope_limits": [
+    "Single-node, same-host, single-partition Kafka 4.0.2 only; not a version matrix, sustained workload or independent-host qualification",
+    "Secure cases use strict server TLS or SASL_SSL PLAIN with disposable synthetic credentials, not mTLS or SCRAM",
+    "Late/unknown commit outcomes and Leave suppression have deterministic local-controller coverage; no new real-broker commit response-loss fault test",
+    "No hard actual-close bound, external-effect fencing, exactly-once or immediate broker handoff guarantee",
+    "No packaged mobile, real OS lifecycle, web support, publication or release qualified"
+  ]
+}

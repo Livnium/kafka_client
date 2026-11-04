@@ -97,6 +97,11 @@ source. They preserve independent server trust and every existing recovery
 policy. This is separate from the historical server-only TLS/SASL matrix, and
 does not establish packaged mobile support or general certificate rotation.
 
+Separate opt-in [graceful consumer stop](GROUP_CONSUMER.md#separate-opt-in-graceful-stop)
+is implemented in source. Its fixed grace deadline does not bound arbitrary
+application work or actual closure. The [source-specific checks](GROUP_GRACEFUL_STOP_QUALIFICATION.md)
+do not broaden broker/version, mobile, failover or production-readiness claims.
+
 Strict-default TLS termination during some failover sequences is a documented
 availability limit, not a claim that transparent failover passed. Default-off
 bootstrap/Fetch/coordinator recovery policies have narrower, separate contracts.

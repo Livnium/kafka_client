@@ -41,8 +41,9 @@ itself to settle. Await it from the outside owner instead.
 record before admitting the next callback. It trades throughput for a simple
 serial boundary. False still acknowledges locally for backpressure but sends no
 commits. In that mode a later generation can replay work from an older stored
-offset or the same explicit fallback. Neither mode commits after explicit stop or
-a callback that failed or completed after losing local validity.
+offset or the same explicit fallback. Neither mode admits a new commit after immediate `stop()` or
+a callback that failed or completed after losing local validity. An already
+admitted commit can still settle afterward.
 
 The same copied broker list, topic set and configured TLS/SASL objects are used
 for every cycle and position reader. Existing strict TLS and SASL-over-TLS policy
@@ -139,7 +140,7 @@ A replacement session is created only when all of these hold:
    unknown commit hidden behind the earlier revocation.
 4. The actual data/commit barrier, position work/closure and membership/control
    cleanup settled with no reported cleanup failure.
-5. The runner was not stopped and still has a rejoin allowance.
+5. The runner was not stopped or quiescing and still has a rejoin allowance.
 
 The old session and token are never revived. A new dynamic member/session is
 created after a close-aware monotonic delay. `maxRejoins` defaults to 3, accepts
@@ -215,7 +216,86 @@ snapshots, not leases. Checking one before an arbitrary later async effect canno
 fence that effect. The runner is single-use; construct another instance for an
 explicit new operation after reviewing the previous termination evidence.
 
+## Separate opt-in graceful stop
+
+`stop()` retains its immediate revocation and no-post-stop-commit behavior.
+`drainAndStop(timeout: ...)` is a different, explicitly requested shutdown mode:
+
+```dart
+// Call from the outside lifetime owner, such as a shutdown-signal handler.
+final grace = await consumer.drainAndStop(timeout: const Duration(seconds: 5));
+inspectGraceReport(grace);
+// A grace report is not actual closure. This can still wait on application work.
+inspectConsumerTermination(await consumer.closed);
+```
+
+The call synchronously prevents new application callbacks and replacement
+sessions. While `state` is `quiescing`, only the one already admitted callback
+and its configured per-record commit may finish. The exact assignment must remain
+locally current. Independent heartbeats, local expiry and the existing processing
+watchdog keep running; grace never refreshes any of their deadlines. Buffered or
+late Fetch records are not delivered, and no extra cross-topic final commit is
+introduced. With `commitAfterProcessing: false`, grace sends no commit.
+
+The first call fixes one absolute monotonic deadline. Repeated calls return the
+same Future and cannot extend it. The explicit timeout accepts zero through one
+hour. Zero grants no grace to pending work. Invalid values throw synchronously.
+Before `run`, during startup/position loading, after a record fully settles, on an
+empty assignment or in rejoin backoff, there is no owned application work to keep
+alive: shutdown starts immediately. An outstanding read or cleanup can still
+outlive the report. The original `closed` barrier continues to own those Futures.
+
+The immutable `KafkaGroupConsumerDrainResult` distinguishes:
+
+- `drained`: the exact callback Future and any configured commit settled
+  successfully before the deadline, or no application work was pending. This
+  describes application/commit drain only, not successful data/control cleanup.
+- `deadlineExpired`: the deadline was reached and immediate stop was initiated.
+- `revoked`: the assignment became invalid before the drain could succeed. The
+  report can arrive before an admitted commit settles; inspect eventual evidence.
+- `failed`: a processing or commit failure was observed before the grace attempt
+  otherwise ended. The first observed loss can instead produce `revoked`.
+- `abortedByStop`: explicit immediate `stop()` superseded grace, immediate stop
+  had already been requested, or the consumer was already closed when grace was
+  first requested.
+
+`callbackPending` and `commitPending` are snapshots, not cancellation proof.
+`lastCommit` is the latest settled commit and may belong to an earlier record
+when a new commit is still pending. No final outcome is fabricated for a pending
+request. The eventual `closed.lastCommit` preserves late confirmed, rejected or
+unknown evidence without restoring authority or changing the earlier report.
+No commit is replayed, retried, replaced by a manual commit, or justified by
+readback. Existing session cleanup still attempts Leave only from stable
+membership with neither heartbeat nor commit in flight. Grace makes no promise
+of immediate broker departure or partition reassignment.
+
+The deadline is checked before acknowledgement, commit admission and success,
+even if a timer wakes late. An early timer wake rearms against the same target.
+Expiry, membership loss, processing timeout or failure starts ordinary cleanup
+and prevents further acknowledgement/commit/rejoin. A genuinely late callback or
+commit error remains failure evidence on `closed`; it is not hidden as clean
+cancellation. Cleanup failures and membership cleanup timeouts remain visible
+there too, independently of an earlier `drained` report.
+
+No timer stops arbitrary application code, detached work or external effects.
+A blocked isolate can delay enforcement and reporting, and a callback Future
+that never settles keeps `closed` pending indefinitely. Grace can be requested
+synchronously from inside the callback, but return from that callback and await
+the result outside it. Awaiting the grace Future there waits on itself until the
+deadline; awaiting `closed` there can deadlock indefinitely. This is not a broker
+lease, external-effect fencing, exactly-once processing or cooperative revocation.
+
+The design was compared with Apache Kafka 4.0.2's classic Java
+[`ConsumerCoordinator.close`](https://github.com/apache/kafka/blob/5d0fe56677f97d9525843963f1ffe329d2b69433/clients/src/main/java/org/apache/kafka/clients/consumer/internals/ConsumerCoordinator.java),
+which drains pending commits within a timer before coordinator close. Java's
+callback and retry model differs; no Java parity, Java-style retry or hard total
+shutdown bound is claimed here.
+
 ## Evidence and limits
+
+The new graceful-stop option has its own
+[exact-source qualification](GROUP_GRACEFUL_STOP_QUALIFICATION.md). Its ordinary
+and owned broker observations are separate from the historical receipts below.
 
 The source-specific receipt is in `verification/group_rejoin/`. Controlled local
 peers establish wire/send-count behavior; real Kafka fixtures separately establish

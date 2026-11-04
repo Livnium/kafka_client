@@ -249,6 +249,10 @@ Fetch is never reset. See `doc/GROUP_MISSING_OFFSETS.md` for the opt-in scope an
 stability limits. `commitAfterProcessing` is a required true/false
 choice. Uncertain commits remain terminal; other failures remain terminal by default. See
 `doc/GROUP_CONSUMER.md` for the narrow policy and shutdown contract.
+The separate `drainAndStop(timeout: ...)` opt-in stops admission while retaining
+heartbeats for the one owned callback and its configured commit, until the fixed
+deadline or loss. Its drain report is separate from actual `closed`/cleanup;
+ordinary `stop()` still revokes immediately and never admits a new commit.
 A separate default-off coordinator-loss policy (`doc/GROUP_COORDINATOR_RECOVERY.md`)
 allows narrowly classified fresh-generation replacement with the same drain and
 commit-safety requirements; it does not enable group-discovery TLS fallback.

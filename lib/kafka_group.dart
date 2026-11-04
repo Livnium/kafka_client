@@ -48,4 +48,6 @@ export 'src/group_consumer.dart'
         KafkaGroupConsumer,
         KafkaGroupConsumerState,
         KafkaGroupConsumerTermination,
-        KafkaGroupConsumerStopReason;
+        KafkaGroupConsumerStopReason,
+        KafkaGroupConsumerDrainOutcome,
+        KafkaGroupConsumerDrainResult;

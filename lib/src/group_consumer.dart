@@ -22,12 +22,49 @@ enum KafkaGroupConsumerState {
   joining,
   loadingPositions,
   processing,
+  quiescing,
   draining,
   backoff,
   closed
 }
 
 enum KafkaGroupConsumerStopReason { cancelled, rejoinLimit, failure }
+
+/// The grace attempt's result, separate from actual [KafkaGroupConsumer.closed].
+enum KafkaGroupConsumerDrainOutcome {
+  drained,
+  deadlineExpired,
+  revoked,
+  failed,
+  abortedByStop
+}
+
+/// Snapshot when an opt-in grace attempt ends.
+/// [KafkaGroupConsumerDrainOutcome.drained] means only the owned application
+/// Future and configured per-record commit settled successfully before its
+/// deadline, or no application work was pending. Cleanup may still fail or time
+/// out; inspect [KafkaGroupConsumer.closed].
+///
+/// Pending work can outlive this report. No timer can stop arbitrary user code,
+/// retract external effects, prove broker departure or resolve an unknown write.
+/// A late commit response is retained on eventual consumer termination.
+final class KafkaGroupConsumerDrainResult {
+  final KafkaGroupConsumerDrainOutcome outcome;
+  final bool callbackPending;
+  final bool commitPending;
+
+  /// Latest settled per-record commit, if any. When [commitPending] is true,
+  /// this can describe an earlier record, not the still-unconfirmed request.
+  final KafkaGroupCommitResult? lastCommit;
+  final Object? error;
+  const KafkaGroupConsumerDrainResult({
+    required this.outcome,
+    required this.callbackPending,
+    required this.commitPending,
+    this.lastCommit,
+    this.error,
+  });
+}
 
 /// Final evidence after the callback/data/commit/position barriers and the
 /// bounded membership cleanup attempt settle. A membership cleanup timeout can
@@ -256,6 +293,26 @@ class KafkaGroupConsumer {
   /// Await [closed] outside the processing callback to observe draining. Awaiting
   /// closed inside that same callback would wait on itself. Idempotent.
   void stop() => _controller.stop();
+
+  /// Opt-in: synchronously stop admitting records and replacement generations,
+  /// then allow the one admitted callback and its configured commit to settle
+  /// while their exact assignment remains current. Independent heartbeats and
+  /// existing membership/processing deadlines keep running and are not extended.
+  /// No buffered records are drained and no extra final commit is introduced.
+  ///
+  /// The first call fixes a monotonic deadline; repeats return the same Future.
+  /// [timeout] must be nonnegative and at most one hour; zero allows no grace.
+  /// Expiry, revocation or failure starts ordinary cleanup without waiting for
+  /// user work. [stop] supersedes an unfinished grace attempt immediately.
+  ///
+  /// The returned report does not mean [closed] completed. Await [closed] for
+  /// actual owned barriers and cleanup evidence, which can wait indefinitely on
+  /// user code. A blocked isolate can delay timers and reporting. Request grace
+  /// inside a callback and return; awaiting either barrier there waits on itself
+  /// until the grace deadline, and waiting on closed can deadlock indefinitely.
+  Future<KafkaGroupConsumerDrainResult> drainAndStop(
+          {required Duration timeout}) =>
+      _controller.drainAndStop(timeout: timeout);
 }
 
 /// Internal owned-cycle seam for deterministic lifecycle tests.
@@ -345,6 +402,22 @@ class _NativeConsumerCycle implements GroupConsumerCycle {
 
 class _ConsumerStopped implements Exception {}
 
+class _ConsumerDrainScheduler implements ClassicGroupScheduler {
+  final Stopwatch _clock = Stopwatch()..start();
+  @override
+  Duration get now => _clock.elapsed;
+  @override
+  ClassicGroupTimer schedule(Duration delay, void Function() callback) =>
+      _ConsumerDrainTimer(Timer(delay, callback));
+}
+
+class _ConsumerDrainTimer implements ClassicGroupTimer {
+  final Timer timer;
+  _ConsumerDrainTimer(this.timer);
+  @override
+  void cancel() => timer.cancel();
+}
+
 /// Internal serial-lifecycle owner. No user-created session/processing handle is
 /// exposed, so every admitted callback and commit has an owned settling Future.
 class GroupConsumerController {
@@ -364,7 +437,13 @@ class GroupConsumerController {
   GroupConsumerCycle? _cycle;
   KafkaGroupAssignment? _assignment;
   KafkaGroupConsumerState _state = KafkaGroupConsumerState.idle;
-  bool _started = false, _stopping = false;
+  bool _started = false, _stopping = false, _quiescing = false;
+  final ClassicGroupScheduler _drainScheduler;
+  Completer<KafkaGroupConsumerDrainResult>? _drain;
+  Duration? _drainDeadline;
+  ClassicGroupTimer? _drainTimer;
+  int _drainWatchdogVersion = 0;
+  bool _callbackPending = false, _commitPending = false;
   int _generations = 0;
   Future<Object?>? _positionsClosed;
   Future<KafkaGroupTermination?>? _sessionClosed;
@@ -388,7 +467,9 @@ class GroupConsumerController {
       this.missingOffsetPosition,
       required this.maxRejoins,
       this.rejoinOnCoordinatorLoss = false,
-      required this.rejoinDelay}) {
+      required this.rejoinDelay,
+      ClassicGroupScheduler? drainScheduler})
+      : _drainScheduler = drainScheduler ?? _ConsumerDrainScheduler() {
     validate(maxRejoins, rejoinDelay);
   }
 
@@ -421,17 +502,24 @@ class GroupConsumerController {
     return Map.unmodifiable(result);
   }
 
-  KafkaGroupConsumerState get state => _state;
+  KafkaGroupConsumerState get state {
+    _checkDrainDeadline();
+    return _state;
+  }
+
   int get generationsStarted => _generations;
   KafkaGroupAssignment? get assignment {
     final token = _assignment;
     return token != null && isCurrent(token) ? token : null;
   }
 
-  bool isCurrent(KafkaGroupAssignment token) =>
-      !_stopping &&
-      identical(token, _assignment) &&
-      (_cycle?.isCurrent(token) ?? false);
+  bool isCurrent(KafkaGroupAssignment token) {
+    _checkDrainDeadline();
+    return !_stopping &&
+        identical(token, _assignment) &&
+        (_cycle?.isCurrent(token) ?? false);
+  }
+
   Future<KafkaGroupConsumerTermination> get closed => _finished.future;
 
   Future<KafkaGroupConsumerTermination> run(
@@ -444,7 +532,95 @@ class GroupConsumerController {
     return closed;
   }
 
+  Future<KafkaGroupConsumerDrainResult> drainAndStop(
+      {required Duration timeout}) {
+    if (timeout < Duration.zero || timeout > const Duration(hours: 1)) {
+      throw ArgumentError.value(
+          timeout, 'timeout', 'Must be between zero and one hour');
+    }
+    final existing = _drain;
+    if (existing != null) return existing.future;
+    final drain = _drain = Completer<KafkaGroupConsumerDrainResult>();
+    if (_stopping || _finished.isCompleted) {
+      _reportDrain(KafkaGroupConsumerDrainOutcome.abortedByStop);
+      return drain.future;
+    }
+    _quiescing = true;
+    _drainDeadline = _drainScheduler.now + timeout;
+    _listener?.pause();
+    if (_working) {
+      _state = KafkaGroupConsumerState.quiescing;
+      _armDrainDeadline();
+      if (!_stopping && _assignment != null && !isCurrent(_assignment!)) {
+        _endDrain(KafkaGroupConsumerDrainOutcome.revoked);
+      }
+    } else {
+      // Startup, position lookup and backoff own no application work to retain.
+      _endDrain(
+          _error == null
+              ? KafkaGroupConsumerDrainOutcome.drained
+              : KafkaGroupConsumerDrainOutcome.failed,
+          _error);
+    }
+    return drain.future;
+  }
+
+  bool get _drainPending => _drain != null && !_drain!.isCompleted;
+
+  void _reportDrain(KafkaGroupConsumerDrainOutcome outcome, [Object? error]) {
+    if (!_drainPending) return;
+    _drainTimer?.cancel();
+    _drainTimer = null;
+    _drainWatchdogVersion++;
+    _drain!.complete(KafkaGroupConsumerDrainResult(
+        outcome: outcome,
+        callbackPending: _callbackPending,
+        commitPending: _commitPending,
+        lastCommit: _lastCommit,
+        error: error));
+  }
+
+  void _endDrain(KafkaGroupConsumerDrainOutcome outcome, [Object? error]) {
+    _reportDrain(outcome, error);
+    stop();
+  }
+
+  void _checkDrainDeadline() {
+    if (_drainPending &&
+        _drainDeadline != null &&
+        _drainScheduler.now >= _drainDeadline!) {
+      _endDrain(KafkaGroupConsumerDrainOutcome.deadlineExpired);
+    }
+  }
+
+  void _armDrainDeadline() {
+    final version = ++_drainWatchdogVersion;
+    _drainTimer?.cancel();
+    _drainTimer = null;
+    _checkDrainDeadline();
+    if (!_drainPending) return;
+    final remaining = _drainDeadline! - _drainScheduler.now;
+    _drainTimer = _drainScheduler.schedule(
+        Duration(milliseconds: (remaining.inMicroseconds + 999) ~/ 1000), () {
+      if (version != _drainWatchdogVersion || !_drainPending) return;
+      _armDrainDeadline();
+    });
+  }
+
+  void _afterDrainedWork(KafkaGroupAssignment token) {
+    _checkDrainDeadline();
+    if (!_drainPending) return;
+    if (_error != null) {
+      _endDrain(KafkaGroupConsumerDrainOutcome.failed, _error);
+    } else if (!isCurrent(token)) {
+      _endDrain(KafkaGroupConsumerDrainOutcome.revoked);
+    } else {
+      _endDrain(KafkaGroupConsumerDrainOutcome.drained);
+    }
+  }
+
   void stop() {
+    _reportDrain(KafkaGroupConsumerDrainOutcome.abortedByStop);
     if (_stopping || _finished.isCompleted) return;
     _stopping = true;
     _waits.close();
@@ -484,6 +660,8 @@ class GroupConsumerController {
   void _fail(Object error, [StackTrace? stack]) {
     _error ??= error;
     _stack ??= stack;
+    _checkDrainDeadline();
+    if (_drainPending) _endDrain(KafkaGroupConsumerDrainOutcome.failed, error);
     final cycle = _cycle;
     if (cycle != null) {
       unawaited(_closeSession());
@@ -570,16 +748,26 @@ class GroupConsumerController {
 
   Future<void> _handle(KafkaGroupRecord record,
       FutureOr<void> Function(KafkaGroupRecord) process) async {
-    _working = true;
     try {
       _check(record.assignment);
-      // Future.sync calls application code now, inside original admission.
-      await Future<void>.sync(() => process(record));
+      // The owned work slot and callback flag were installed before this call,
+      // so a synchronous callback can request grace without missing itself.
+      try {
+        await Future<void>.sync(() => process(record));
+      } finally {
+        _callbackPending = false;
+      }
       if (!isCurrent(record.assignment)) return;
       _processing!.acknowledge(record);
       if (commitAfterProcessing && isCurrent(record.assignment)) {
-        final result =
-            _lastCommit = await _processing!.commitAcknowledged(record.topic);
+        _commitPending = true;
+        late final KafkaGroupCommitResult result;
+        try {
+          result =
+              _lastCommit = await _processing!.commitAcknowledged(record.topic);
+        } finally {
+          _commitPending = false;
+        }
         if (result.error != null ||
             result.partitions.values
                 .any((p) => p.outcome != KafkaGroupCommitOutcome.confirmed)) {
@@ -590,8 +778,12 @@ class GroupConsumerController {
     } catch (error, stack) {
       _fail(error, stack);
     } finally {
+      _callbackPending = false;
       _working = false;
-      if (isCurrent(record.assignment) && _error == null) _listener?.resume();
+      _afterDrainedWork(record.assignment);
+      if (!_quiescing && isCurrent(record.assignment) && _error == null) {
+        _listener?.resume();
+      }
     }
   }
 
@@ -614,8 +806,17 @@ class GroupConsumerController {
         _observedPositions = {};
         var processingStarted = false;
         final ownedCycle = cycle;
-        unawaited(ownedCycle.revoked.then<void>((_) {
-          if (identical(_cycle, ownedCycle)) unawaited(_closePositions());
+        unawaited(ownedCycle.revoked.then<void>((termination) {
+          if (identical(_cycle, ownedCycle)) {
+            if (_drainPending) {
+              _checkDrainDeadline();
+              if (_drainPending) {
+                _endDrain(
+                    KafkaGroupConsumerDrainOutcome.revoked, termination.error);
+              }
+            }
+            unawaited(_closePositions());
+          }
         }, onError: (Object error, StackTrace stack) {
           if (identical(_cycle, ownedCycle)) _fail(error, stack);
         }));
@@ -632,13 +833,17 @@ class GroupConsumerController {
           _processing = cycle.processing(token, positions);
           _state = KafkaGroupConsumerState.processing;
           _listener = _processing!.records.listen((record) {
-            if (_stopping || _error != null) return;
+            if (_stopping || _quiescing || _error != null) return;
             if (_working) {
               _fail(StateError('Concurrent consumer callback'));
               return;
             }
             _listener!.pause();
-            _work = _handle(record, process);
+            final settled = Completer<void>();
+            _work = settled.future;
+            _working = true;
+            _callbackPending = true;
+            unawaited(_handle(record, process).whenComplete(settled.complete));
           }, onError: (Object error, StackTrace stack) => _fail(error, stack));
           processingStarted = true;
           await cycle.revoked;

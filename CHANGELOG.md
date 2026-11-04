@@ -1,5 +1,13 @@
 ## Unreleased native hardening
 
+- Add separate opt-in `KafkaGroupConsumer.drainAndStop` with quiescing admission,
+  a fixed monotonic grace deadline and a drain report distinct from actual owned
+  shutdown. Preserve immediate `stop()`, heartbeat/processing expiry, commit
+  uncertainty/non-replay and the existing Leave gate. Arbitrary application work
+  and external effects cannot be cancelled or fenced by this API. Separate
+  source `693f509` checks passed 47 deterministic cases, both full SDK suites and
+  12 Kafka 4.0.2 plaintext/TLS/SASL grace cases per SDK; limits remain explicit.
+
 - Add optional, bounded and redacted PEM/PKCS12 client certificate identities
   through native SecurityContext, preserving independent server trust, hostname
   validation, PLAIN requirements and connection ownership. Document iOS PKCS12
