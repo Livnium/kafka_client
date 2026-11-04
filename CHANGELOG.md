@@ -1,5 +1,11 @@
 ## Unreleased native hardening
 
+- Add optional, bounded and redacted PEM/PKCS12 client certificate identities
+  through native SecurityContext, preserving independent server trust, hostname
+  validation, PLAIN requirements and connection ownership. Document iOS PKCS12
+  restrictions without claiming mobile qualification. A separate opt-in broker
+  fixture requires client certificates; historical qualification is unchanged.
+
 - Add opt-in managed `missingOffsetPosition` earliest/latest resolution after
   successful missing commits, preserving numeric precedence, position-floor
   guards and owned cancellation. Out-of-range Fetch still fails without reset.

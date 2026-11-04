@@ -31,7 +31,11 @@ export 'src/api/response/api2_list_offsets_response.dart'
 export 'src/api/response/api3_metadata_response.dart'
     show MetadataResponse, BrokerMetadata, TopicMetadata, PartitionMetadata;
 export 'src/security/security.dart'
-    show KafkaTlsConfig, KafkaSaslPlain, KafkaAuthenticationException;
+    show
+        KafkaTlsConfig,
+        KafkaTlsClientIdentity,
+        KafkaSaslPlain,
+        KafkaAuthenticationException;
 export 'src/reliability.dart'
     show
         KafkaTlsFetchRecovery,

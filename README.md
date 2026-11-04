@@ -271,7 +271,8 @@ Internal `src/` libraries are not stable API.
 | TLS, server authenticated | System roots or explicit custom CA; hostname validation mandatory |
 | TLS + SASL PLAIN | Qualified in the exact single-node broker matrix above |
 | SASL over plaintext | Rejected before connection/authentication |
-| SCRAM, OAuth, Kerberos, mTLS, SASL reauthentication | Not implemented |
+| Optional mutual TLS | Client PEM/PKCS12 identity in source; see [mTLS contract](doc/MTLS.md) |
+| SCRAM, OAuth, Kerberos, SASL reauthentication | Not implemented |
 
 For a runnable secure-only example, configuration and failure handling, see
 `doc/RUNTIME_COMPATIBILITY.md` in the source checkout
@@ -303,6 +304,14 @@ Authentication finishes on that same verified TLS connection before application
 requests are sent. Authentication diagnostics discard broker-provided text and
 redact credentials. Credentials remain in process memory; Dart cannot guarantee
 secure memory erasure. The library never logs or persists them.
+
+For a broker requiring a client certificate, opt in with
+`KafkaTlsConfig(clientIdentity: KafkaTlsClientIdentity.pem(...))` or
+`KafkaTlsClientIdentity.pkcs12(...)`. Server trust and hostname checks remain
+mandatory. The immutable identity applies to every connection made by that client,
+including advertised leaders and coordinators. iOS requires a PKCS12 identity
+containing both its key and chain; packaged Android/iOS mTLS is not qualified.
+See [identity limits, platform formats and separate qualification](doc/MTLS.md).
 
 ## Reliability and failure semantics
 
@@ -438,6 +447,11 @@ and Java interoperability, then deletes keys, credentials, broker configuration
 and data on success/failure. Only sanitized test summaries remain. Never point
 these fixtures at production infrastructure or provide real credentials.
 
+The separate `bash tool/run_mtls_broker_integration.sh` opts into
+`ssl.client.auth=required`, creates ephemeral client identities, and checks SSL,
+SASL_SSL, strict server validation and scoped stable reads. It is not part of the
+historical server-only TLS/SASL matrix. See [mTLS](doc/MTLS.md).
+
 ## Operational recovery checks
 
 Python 3 is also needed for the disposable crash/restart and cluster fixtures:
@@ -475,7 +489,7 @@ and the current verification receipt. Never use these fixtures on a live cluster
 
 ## Not implemented / not verified
 
-SCRAM/OAuth/Kerberos, mutual TLS, SASL reauthentication and ACL-management
+SCRAM/OAuth/Kerberos, SASL reauthentication and ACL-management
 workflows; general/unbounded group recovery and complete processing/commit management;
 compression;
 transactions/idempotence;

@@ -93,7 +93,9 @@ member commits. The serial managed runner adds fresh position reads and narrowly
 bounded replacement after eligible heartbeat failures, with separate coordinator-loss,
 stable-read and unstable-offset retry opt-ins. These do not fence external effects
 or resolve unknown commits; see the [reliability contract](RELIABILITY_CONTRACT.md).
-No SCRAM/OAuth/Kerberos/mTLS/reauthentication, compression, idempotence, transactional
+Optional source-level mTLS uses the [identity contract](MTLS.md) and requires
+separate qualification; historical server-only TLS results do not cover it.
+No SCRAM/OAuth/Kerberos/reauthentication, compression, idempotence, transactional
 workflow or general group recovery is provided. Each Fetch has bounded read-safe
 retries; explicit subscriptions repeat eligible transient reads while active,
 without a total lifetime retry budget. No automatic Produce/commit replay or

@@ -9,6 +9,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 KAFKA_VERSION="$(python3 "$ROOT/tool/kafka_distribution.py")"
 export KAFKA_VERSION
 DART="${DART:-dart}"
+# A separate wrapper opts into client-certificate qualification. Never weaken
+# ordinary fixture defaults or reinterpret arbitrary values as enabled.
+MTLS="${KAFKA_SECURE_MTLS:-0}"
+[[ "$MTLS" == 0 || "$MTLS" == 1 ]] || { echo 'KAFKA_SECURE_MTLS must be 0 or 1' >&2; exit 1; }
+CLIENT_AUTH=none
+if [[ "$MTLS" == 1 ]]; then CLIENT_AUTH=required; fi
 RUN_ROOT="${KAFKA_SECURE_RUN_ROOT:-$ROOT/.dart_tool/kafka-security}"
 mkdir -p "$RUN_ROOT"
 RUN_ROOT="$(cd "$RUN_ROOT" && pwd)"
@@ -44,13 +50,18 @@ cleanup() {
   fi
   # Never retain broker configuration/logs, CA keys, certificates or credentials.
   # Only explicitly selected test output is retained, after secret redaction.
-  python3 - "$RUN_DIR" "$RESULT" "$status" "$STAGE" <<'PY'
+  python3 - "$RUN_DIR" "$RESULT" "$status" "$STAGE" "$ROOT/tool" <<'PY'
 import os,pathlib,sys
-root,result,status,stage=sys.argv[1:]
+root,result,status,stage,tool=sys.argv[1:]
+sys.path.insert(0,tool)
+from secure_fixture_result import mtls_summary
 version=os.environ['KAFKA_VERSION']
-parts=[f'Kafka {version} security fixture: stage={stage}, exit={status}\n']
+parts=[f'Kafka {version} security fixture: stage={stage}, exit={status}, mtls={os.environ.get("KAFKA_SECURE_MTLS", "0")}\n']
 test=pathlib.Path(root)/'tests.log'
-if test.exists(): parts.append(test.read_text(errors='replace'))
+if os.environ.get('KAFKA_SECURE_MTLS') == '1':
+ text,status=mtls_summary(test.read_text(errors='replace') if test.exists() else '',int(status),stage,version)
+ parts=[text]
+elif test.exists(): parts.append(test.read_text(errors='replace'))
 text=''.join(parts)
 for name in ['KAFKA_SECURE_USERNAME','KAFKA_SECURE_PASSWORD','KAFKA_SECURE_STORE_PASSWORD']:
  value=os.environ.get(name)
@@ -58,10 +69,20 @@ for name in ['KAFKA_SECURE_USERNAME','KAFKA_SECURE_PASSWORD','KAFKA_SECURE_STORE
 text=text.replace(root,'[ephemeral-fixture]')
 pathlib.Path(result).write_text(text)
 print(text,end='')
+sys.exit(int(status))
 PY
-  rm -rf -- "$RUN_DIR"
+  report_status=$?
+  if [[ "$report_status" != 0 && "$status" == 0 ]]; then status=$report_status; fi
+  cleanup_status=0
+  rm -rf -- "$RUN_DIR" || cleanup_status=$?
+  if [[ "$cleanup_status" != 0 || -e "$RUN_DIR" ]]; then
+    status=1
+    echo 'Secure fixture cleanup failed; private material may remain.' >&2
+    printf '\nCleanup failed; private material may remain.\n' >> "$RESULT"
+  else
+    echo "Secure Kafka stopped; ephemeral keys/credentials removed; sanitized result: $RESULT"
+  fi
   unset KAFKA_SECURE_PASSWORD KAFKA_SECURE_USERNAME KAFKA_SECURE_STORE_PASSWORD
-  echo "Secure Kafka stopped; ephemeral keys/credentials removed; sanitized result: $RESULT"
   exit "$status"
 }
 trap cleanup EXIT
@@ -91,6 +112,25 @@ if openssl verify -CAfile "$RUN_DIR/ca.pem" -verify_ip 127.0.0.1 "$RUN_DIR/serve
 fi
 openssl pkcs12 -export -in "$RUN_DIR/server.pem" -inkey "$RUN_DIR/server.key" -certfile "$RUN_DIR/ca.pem" -name kafka -out "$RUN_DIR/server.p12" -passout env:KAFKA_SECURE_STORE_PASSWORD >> "$RUN_DIR/openssl.log" 2>&1
 openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 -subj '/CN=Untrusted ephemeral test CA' -keyout "$RUN_DIR/wrong-ca.key" -out "$RUN_DIR/wrong-ca.pem" >> "$RUN_DIR/openssl.log" 2>&1
+if [[ "$MTLS" == 1 ]]; then
+  export KAFKA_SECURE_CLIENT_CERT="$RUN_DIR/client.pem"
+  export KAFKA_SECURE_CLIENT_KEY="$RUN_DIR/client.key"
+  export KAFKA_SECURE_CLIENT_PKCS12="$RUN_DIR/client.p12"
+  export KAFKA_SECURE_UNTRUSTED_CLIENT_CERT="$RUN_DIR/untrusted-client.pem"
+  export KAFKA_SECURE_UNTRUSTED_CLIENT_KEY="$RUN_DIR/untrusted-client.key"
+  cat > "$RUN_DIR/client.ext" <<EOF
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature
+extendedKeyUsage=clientAuth
+EOF
+  for name in client untrusted-client; do
+    signer=ca
+    if [[ "$name" == untrusted-client ]]; then signer=wrong-ca; fi
+    openssl req -newkey rsa:2048 -nodes -sha256 -subj '/CN=Owned ephemeral Kafka client' -keyout "$RUN_DIR/$name.key" -out "$RUN_DIR/$name.csr" >> "$RUN_DIR/openssl.log" 2>&1
+    openssl x509 -req -in "$RUN_DIR/$name.csr" -CA "$RUN_DIR/$signer.pem" -CAkey "$RUN_DIR/$signer.key" -CAcreateserial -days 1 -sha256 -extfile "$RUN_DIR/client.ext" -out "$RUN_DIR/$name.pem" >> "$RUN_DIR/openssl.log" 2>&1
+  done
+  openssl pkcs12 -export -in "$RUN_DIR/client.pem" -inkey "$RUN_DIR/client.key" -certfile "$RUN_DIR/ca.pem" -name kafka-client -out "$RUN_DIR/client.p12" -passout env:KAFKA_SECURE_STORE_PASSWORD >> "$RUN_DIR/openssl.log" 2>&1
+fi
 cat > "$RUN_DIR/server.properties" <<EOF
 process.roles=broker,controller
 node.id=1
@@ -104,7 +144,13 @@ ssl.keystore.type=PKCS12
 ssl.keystore.location=$RUN_DIR/server.p12
 ssl.keystore.password=$KAFKA_SECURE_STORE_PASSWORD
 ssl.key.password=$KAFKA_SECURE_STORE_PASSWORD
-ssl.client.auth=none
+ssl.client.auth=$CLIENT_AUTH
+# SASL_SSL intentionally ignores the unprefixed client-auth property. Require
+# it explicitly per listener in mTLS mode, and preserve none otherwise.
+listener.name.sasl_ssl.ssl.client.auth=$CLIENT_AUTH
+listener.name.scram.ssl.client.auth=$CLIENT_AUTH
+ssl.truststore.type=PEM
+ssl.truststore.location=$RUN_DIR/ca.pem
 sasl.enabled.mechanisms=PLAIN
 listener.name.sasl_ssl.sasl.enabled.mechanisms=PLAIN
 listener.name.scram.sasl.enabled.mechanisms=SCRAM-SHA-256
@@ -134,6 +180,16 @@ ssl.truststore.location=$RUN_DIR/ca.pem
 sasl.mechanism=PLAIN
 sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="$KAFKA_SECURE_USERNAME" password="$KAFKA_SECURE_PASSWORD";
 EOF
+if [[ "$MTLS" == 1 ]]; then
+  for config in ssl-client sasl-client; do
+    cat >> "$RUN_DIR/$config.properties" <<EOF
+ssl.keystore.type=PKCS12
+ssl.keystore.location=$RUN_DIR/client.p12
+ssl.keystore.password=$KAFKA_SECURE_STORE_PASSWORD
+ssl.key.password=$KAFKA_SECURE_STORE_PASSWORD
+EOF
+  done
+fi
 STAGE=startup
 CLUSTER_ID="$("$KAFKA_HOME/bin/kafka-storage.sh" random-uuid)"
 "$KAFKA_HOME/bin/kafka-storage.sh" format --standalone -t "$CLUSTER_ID" -c "$RUN_DIR/server.properties" > "$RUN_DIR/format.log" 2>&1

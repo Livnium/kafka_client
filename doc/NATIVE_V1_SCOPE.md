@@ -79,7 +79,7 @@ the retained pubspec version does not publish those changes.
 Browser transport, Flutter Web and a WebSocket gateway are deferred. No web
 prototype results count as native qualification or permission to ship web APIs.
 
-Compression, SCRAM/OAuth/Kerberos/mTLS/reauthentication, idempotent production,
+Compression, SCRAM/OAuth/Kerberos/reauthentication, idempotent production,
 transactions/exactly-once workflows, read-committed consumption, automatic
 out-of-range reset, automatic partition discovery, KIP-848 membership,
 general automatic group recovery and application-effect fencing are not provided.
@@ -91,6 +91,11 @@ Explicit [ListOffsets](LIST_OFFSETS.md) and opt-in managed
 Neither changes default fallback behavior. Their separate plaintext 4.0.2/4.4.0
 probes qualify only the exact source and scenarios in the
 [additional observations](QUALIFICATION_OBSERVATIONS.md), not secure/failover behavior.
+
+Optional native [client certificate identities](MTLS.md) are implemented in
+source. They preserve independent server trust and every existing recovery
+policy. This is separate from the historical server-only TLS/SASL matrix, and
+does not establish packaged mobile support or general certificate rotation.
 
 Strict-default TLS termination during some failover sequences is a documented
 availability limit, not a claim that transparent failover passed. Default-off
