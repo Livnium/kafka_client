@@ -19,6 +19,10 @@ native-only boundary, concrete release gates and explicitly deferred features.
 - Plaintext local connectivity, strict server-authenticated TLS, and SASL PLAIN
   only over verified TLS. No weak-certificate or plaintext-auth fallback.
 - Uncompressed magic-2 records, explicit partitions/offsets, read-uncommitted.
+- Explicit ListOffsets v2 earliest/latest lookup and opt-in managed resolution
+  after successful missing committed-position reads. Numeric and stored-position
+  precedence is preserved; Fetch out-of-range still does not reset. See
+  [ListOffsets](LIST_OFFSETS.md) and [missing positions](GROUP_MISSING_OFFSETS.md).
 - Finite retries within each Fetch and bounded wire resources. The additive
   subscription stream repeats eligible transient reads while active, with one
   Fetch at a time and explicit fixed partition offsets. It has no durable
@@ -58,6 +62,14 @@ Dart cases and four Java consume-back checks across Kafka 4.0.0 and 4.4.0;
 this is not a full six-version or expanded secure-suite rerun.
 These results do not rerun every gate below. Raw qualification receipts are
 retained separately and are not shipped in this source/package checkout.
+
+[Additional source-specific observations](QUALIFICATION_OBSERVATIONS.md) record
+four coordinator-loss tests/eight scenarios on 4.0.2/4.4.0, 12 network-fault tests
+on 4.0.2 and a paced 1,800-second subscription pass at `a9c5d12`. That source's
+four-worker operational soak remains incomplete after a free-disk guard stop.
+Separate plaintext probes passed 16 ListOffsets boundary comparisons at
+`39a02aa` and 14 missing-position cases at `4701dd6`, each on 4.0.2/4.4.0.
+These counts use different units and are not a full latest-source matrix.
 
 1. Minimum and current tested SDK: analyzer, formatting, every unit regression.
 2. Actual Kafka plaintext and secured roundtrips, including independent official
@@ -120,8 +132,12 @@ a write failure is not converted into a silent retry.
 
 ## Still needed before claiming a broadly dependable v1
 
-- Longer, repeated and varied sustained observations. The recorded 30-minute
-  four-worker run supplies bounded evidence, not a capacity or leak guarantee.
+- Longer, repeated and varied sustained observations. The `a9c5d12` paced
+  subscription run passed 30 minutes, but its separate four-worker operational
+  soak was resource-guard stopped after a 660.603-second sustained checkpoint,
+  not completed. It cannot inherit completion from the paced profile or older
+  source snapshots. Historical 30-minute four-worker evidence supplies bounded
+  evidence, not a capacity or leak guarantee.
   The Dart 3.2.6 60-second guarded smoke did not complete: whole-test-process RSS
   exceeded the fixed 768 MiB ceiling after about three seconds. Subsequent
   controlled 60-second source/cached-runner and framework-free runs passed at the
@@ -151,6 +167,9 @@ a write failure is not converted into a silent retry.
   both recorded SDKs in TLS and SASL-over-TLS modes. That closes this bounded
   stream scenario, not transparent default failover or the broader fault matrix.
   See [SUBSCRIPTION_RELIABILITY.md](SUBSCRIPTION_RELIABILITY.md).
+  The `a9c5d12` coordinator-loss and selected network-fault passes in the
+  [additional observations](QUALIFICATION_OBSERVATIONS.md) remain bounded,
+  source-specific scenarios, not closure of this broader matrix.
 - Expand the network-fault matrix to independent-host partitions, kernel-level
   loss/latency, repeated leader changes and constrained resources under sustained
   load. The local proxy covers selected stalled/cut/fragmented TCP behavior only.
@@ -164,9 +183,10 @@ a write failure is not converted into a silent retry.
   cancellation stops new Fetch admission and awaits the current Fetch under its
   existing phase deadlines; it does not add immediate scoped transport abort.
 - Subscription product decisions if those features enter the selected v1 scope:
-  supplied versus earliest/latest offsets, fixed
-  versus automatically discovered partitions, and coordinated consumer-group
-  membership/assignment/rebalancing. Broker-stored offsets are now explicit
+  automatic boundary/reset behavior, automatically discovered partitions and
+  broader coordinated group recovery. Explicit earliest/latest lookup and the
+  opt-in managed missing-position policy now exist, without changing numeric
+  subscription starts or resetting out-of-range Fetch. Broker-stored offsets are explicit
   manual APIs; durable processing and single-writer coordination are still the
   application's responsibility. The stream restores/commits nothing implicitly.
 - An explicit OS/architecture/runtime support policy. Local Linux x64 source
@@ -174,7 +194,9 @@ a write failure is not converted into a silent retry.
   headless Flutter test-engine evidence covers nine cases, not packaged apps or
   real OS lifecycle behavior. See [RUNTIME_COMPATIBILITY.md](RUNTIME_COMPATIBILITY.md).
 - An automated release gate that reruns these fixtures in the maintainer's actual
-  CI environment; no CI account or workflow publication is assumed here.
+  CI environment. The [ordinary native CI baseline](NATIVE_CI.md) does not start
+  real brokers; adding its files does not establish required-check enforcement
+  or remote workflow success.
 - Recheck the selected Apache 2.0 license, Livnium attribution and separate
   third-party notices in the next final payload. The package name, repository and
   experimental 0.1.1 publication are already established. The next version,

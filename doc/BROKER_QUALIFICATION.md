@@ -1,5 +1,11 @@
 # Selecting broker releases for qualification
 
+The [additional qualification observations](QUALIFICATION_OBSERVATIONS.md)
+record later source-specific coordinator/network faults, a paced 30-minute
+subscription pass, an incomplete concurrent soak, and plaintext ListOffsets/
+missing-position probes. They do not rerun or extend the older matrices below
+to the current `4701dd6` source.
+
 ## Recorded six-version native qualification, 2026-11-04
 
 This evidence qualifies native source `6f828d306cb1f6c3adc0638f9ba7ac727d1cf368`

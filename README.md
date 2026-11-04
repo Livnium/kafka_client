@@ -31,6 +31,14 @@ official Java consume-back checks in total, on Dart 3.12.0/Linux x64. These
 representative checks do not extend the earlier six-version or 68-case secure
 matrix to the newer source. See [broker qualification](doc/BROKER_QUALIFICATION.md).
 
+Later [source-specific observations](doc/QUALIFICATION_OBSERVATIONS.md) include
+coordinator loss on 4.0.2/4.4.0, plus network faults and a distinct paced
+30-minute subscription pass on 4.0.2 at **a9c5d12**. Its four-worker operational soak
+remained resource-stopped and incomplete. Plaintext earliest/latest boundary
+comparisons passed at **39a02aa**, followed by 14 missing-position policy cases
+at **4701dd6**, each on 4.0.2/4.4.0. These targeted results do not qualify every
+feature or historical matrix on the latest source.
+
 The runtime SDK constraint remains `^3.2.6`; other SDK versions have not been
 individually tested. All public entrypoints require native `dart:io` sockets.
 Browser targets, including Flutter Web, are unsupported and deferred. Nine

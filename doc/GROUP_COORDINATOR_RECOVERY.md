@@ -140,10 +140,20 @@ committed offset, as with the existing heartbeat-rebalance replacement path.
 
 ## Verification scope
 
-Exact executed cases, retained failed attempts and cleanup evidence belong in
-`verification/coordinator_recovery/RESULTS.md` when the checkpoint is sealed.
-Synthetic strict-TLS peer evidence concerns routing and send counts. Separately
-executed owned real Kafka faults can establish observed membership and stored-offset
-behavior; the sealed report must distinguish passed and failed scenarios.
+At source `a9c5d12`, four top-level real-broker tests passed across Kafka 4.0.2
+and 4.4.0, containing eight TLS/SASL_SSL/PLAIN opt-in disabled/enabled scenarios.
+Enabled recovery replaced one generation only after old callback drain and
+preserved confirmed progress while the actual coordinator remained down.
+Disabled recovery validated terminal failure. These local three-node/proxy
+observations, the retained preliminary unknown-cause SIGKILL and cleanup limits
+are recorded in [additional observations](QUALIFICATION_OBSERVATIONS.md).
+They do not establish the complete matrix on later source or general recovery.
+
+Older development receipts used `verification/coordinator_recovery/RESULTS.md`;
+that historical path is not present in every checkout. The later completed
+observations above retain their raw evidence separately. Synthetic strict-TLS
+peer evidence concerns routing and send counts. Separately executed owned real
+Kafka faults can establish observed membership and stored-offset behavior;
+reports must distinguish passed and failed scenarios.
 Neither is evidence of production certification, independent-host behavior,
 arbitrary broker versions or untested outage patterns.

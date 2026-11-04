@@ -20,6 +20,14 @@ secure cases on each of Kafka 4.0.0 and 4.4.0, plus four Java consume-back
 checks total, on Dart 3.12.0/Linux x64. This was not a repeat of the earlier
 six-version matrix or expanded 68-case secure selection.
 
+Later [source-specific observations](QUALIFICATION_OBSERVATIONS.md) on the same
+Linux x64/Dart 3.12.0 runtime distinguish `a9c5d12` coordinator/network faults,
+its paced 30-minute subscription pass and its incomplete concurrent soak.
+Separate plaintext probes on Kafka 4.0.2/4.4.0 cover explicit ListOffsets at
+`39a02aa` and managed missing-position policy at `4701dd6`. These targeted
+observations do not refresh the complete operational matrix or other SDKs,
+packaged apps or native executable forms for the latest checkout.
+
 Historical operational evidence uses standalone Dart 3.2.6 and 3.12.0 on one
 Linux x64 cloud host with Kafka 4.0.2; it does not extend the full operational
 suite to the other broker versions or the latest source.

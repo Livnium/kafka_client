@@ -68,8 +68,15 @@ Independent ByteData wire fixtures and loopback protocol peers cover exact
 selectors and headers, retained nonzero/empty boundaries, scalar/malformed
 results, immutable snapshots, exact API admission, terminal errors, bounded
 leader/transport/deadline retry and shutdown. These peers do not run Kafka.
-No new real-broker, security-interoperability, retention or failover qualification
-is implied. Those gates need explicit coordinated execution for the final source.
+
+A separate plaintext probe at source `39a02aa` passed 16 earliest/latest
+boundary comparisons against official GetOffsetShell results on Kafka 4.0.2
+and 4.4.0, including an empty partition and logical log start advanced by
+DeleteRecords. It used one partition, Linux x64 and Dart 3.12.0. These are
+scratch assertion comparisons, not `package:test` cases or automatic-retention
+timing evidence. Secure lookup, multiple partitions and real-broker errors/
+retries/failover remain unqualified by that probe. See the
+[source-specific observations](QUALIFICATION_OBSERVATIONS.md).
 
 Primary references: Apache Kafka [request schema](https://raw.githubusercontent.com/apache/kafka/4.0/clients/src/main/resources/common/message/ListOffsetsRequest.json),
 [response schema](https://raw.githubusercontent.com/apache/kafka/4.0/clients/src/main/resources/common/message/ListOffsetsResponse.json),

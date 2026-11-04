@@ -3,10 +3,15 @@
 - Add opt-in managed `missingOffsetPosition` earliest/latest resolution after
   successful missing commits, preserving numeric precedence, position-floor
   guards and owned cancellation. Out-of-range Fetch still fails without reset.
-  Deterministic coverage does not establish new real-broker qualification.
+  A separate plaintext probe at `4701dd6` passed 14 policy cases on Kafka
+  4.0.2/4.4.0, without broadening secure/failover or published-package claims.
 - Add explicit earliest/latest partition lookup using ListOffsets v2, without new
   dependencies or changes to numeric Fetch/subscription/group fallback policies.
-  This has deterministic protocol coverage, not a new real-broker qualification.
+  A separate plaintext probe at `39a02aa` passed 16 boundary comparisons against
+  official GetOffsetShell results on Kafka 4.0.2/4.4.0.
+- Record source-specific coordinator/network-fault and paced subscription
+  endurance observations at `a9c5d12`. Its resource-stopped concurrent
+  four-worker soak remains incomplete, not superseded by the paced pass.
 - Snapshot caller-owned Produce record lists and Metadata topic selections before
   asynchronous discovery/retries; published 0.1.1 does not contain these changes.
 - Reject ambiguous leader routes and malformed Produce successes, with separate

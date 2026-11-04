@@ -140,10 +140,16 @@ cleanup failure, skipped mode or incomplete run as a pass.
 
 ## Evidence and limits
 
-The source checkout retains the receipt and exact commands in
-`verification/subscription_endurance/`. Historical source, runtime and fault
-receipts apply to their recorded snapshots. These new tests do not broaden the
-supported platform matrix or change default security behavior.
+Historical development receipts refer to `verification/subscription_endurance/`;
+they are not present in every source checkout and apply to their own snapshots.
+At `a9c5d12`, the existing plaintext paced profile completed 1,800.011 seconds
+on Kafka 4.0.2/Dart 3.12.0 with 308,040 acknowledged/verified/delivered records,
+29 verified subscription replacements and settled counters. Its separately
+attempted four-worker concurrent operational soak was resource-guard stopped
+and remains incomplete. The paced pass is not equivalent to completing that
+profile. See [additional observations](QUALIFICATION_OBSERVATIONS.md) for exact
+source, guard, setup and cleanup scope. Raw receipts are retained separately.
+None broadens runtime support or changes default security behavior.
 
 Independent-host failures, kernel packet loss, longer/repeated mixed workloads,
 real-broker transaction/compaction progress and intended additional runtime forms

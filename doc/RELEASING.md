@@ -51,7 +51,10 @@ candidate; historical publication or qualification is not a substitute.
 - [ ] Run the exact plaintext and secure matrix promised by the release using
   independently verified distributions. The recorded six-version matrix ran on
   Dart 3.12.0 only for `6f828d3`; the later `0d0c800` has representative checks
-  on two versions only. See [BROKER_QUALIFICATION.md](BROKER_QUALIFICATION.md) for the
+  on two versions only. Subsequent fault/endurance and ListOffsets/missing-policy
+  observations remain scoped to their own source; see
+  [additional observations](QUALIFICATION_OBSERVATIONS.md). See
+  [BROKER_QUALIFICATION.md](BROKER_QUALIFICATION.md) for the
   eight-file secure selection and independent Java backcheck. Do not label the
   secure runner's default nine cases as the full 68-case selection.
 - [ ] Refresh operational and replicated-cluster fixtures on the selected

@@ -87,8 +87,20 @@ numeric start APIs.
 Deterministic controller and loopback protocol tests cover precedence, mixed
 assignments, strict validation, snapshots, fresh generation reads, position-floor
 guards, cancellation, late results, close barriers and stable-read composition.
-They do not establish broker persistence, transaction stability, independent-host
-failover or a new real-Kafka qualification.
+They do not establish broker persistence, transaction stability or independent-host
+failover.
+
+A separate plaintext probe at source `4701dd6` passed 14 cases on Kafka 4.0.2
+and 4.4.0, one partition and an independent group per case, on Linux x64/Dart
+3.12.0. It verified boundary/numeric/stored-offset precedence, expected default
+failure and nonzero logical earliest after DeleteRecords. With
+`commitAfterProcessing=false`, independent before/during/after reads found no
+stored-offset changes across these cases. Its 66 ordered deliveries include
+intentional replay across groups; they are not an exactly-once claim or a raw
+OffsetCommit-request count. Secure transport, multiple members/partitions,
+rejoin, stable v7 and out-of-range recovery were not qualified by that probe.
+See the [source-specific observations](QUALIFICATION_OBSERVATIONS.md), including
+the retained preliminary setup failure and final cleanup scope.
 
 See [ListOffsets](LIST_OFFSETS.md), [stable reads](GROUP_STABLE_OFFSETS.md),
 [bounded unstable retries](GROUP_UNSTABLE_OFFSETS.md),

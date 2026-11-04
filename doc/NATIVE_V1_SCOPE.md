@@ -14,12 +14,14 @@ the retained pubspec version does not publish those changes.
   [The recorded six-version matrix](BROKER_QUALIFICATION.md) contains 72
   single-node core/secure Dart cases per exact version on Dart 3.12.0 for
   `6f828d3`. Later `0d0c800` has only the separate 4.0.0/4.4.0 representative
-  checks recorded there. Neither result extends every operational or failure-mode
-  claim to those versions or to newer source.
+  checks recorded there. [Additional observations](QUALIFICATION_OBSERVATIONS.md)
+  distinguish `a9c5d12` faults/endurance, `39a02aa` ListOffsets comparisons and
+  `4701dd6` missing-position policy cases. None extends every operational or
+  failure-mode claim to those versions or to newer source.
 - Plaintext or strictly verified server TLS, optional SASL PLAIN over TLS,
   uncompressed magic-2 records, read-uncommitted Fetch, explicit partitions and
-  offsets, manual broker checkpoints and the documented bounded classic-group
-  APIs. Public API compatibility, defaults and experimental group status need
+  offsets, explicit earliest/latest lookup, manual broker checkpoints and the
+  documented bounded classic-group APIs. Public API compatibility, defaults and experimental group status need
   an explicit maintainer decision before a stable version promise.
 - Preserve no automatic Produce/commit replay, visible partial/unknown commit
   outcomes, fail-closed authentication/trust handling and application-owned
@@ -51,7 +53,9 @@ the retained pubspec version does not publish those changes.
   payload/offset correctness, bounded counters, memory/disk observations and
   owned cleanup criteria. Keep the historical minimum-SDK RSS failure and
   subsequent controlled passes visible. One 30-minute pass is not a leak or
-  capacity guarantee; see [operational readiness](V1_READINESS.md).
+  capacity guarantee. The `a9c5d12` paced subscription pass is a distinct profile;
+  its concurrent four-worker soak remains resource-stopped/incomplete. See
+  [operational readiness](V1_READINESS.md).
 - [ ] Qualify independent-host failure domains and realistic constrained
   network/resource conditions before making broad deployment/failover claims.
   If the release remains limited to local-test evidence, state that limit and
@@ -84,7 +88,9 @@ Their absence must remain clear to users.
 
 Explicit [ListOffsets](LIST_OFFSETS.md) and opt-in managed
 [missing-position resolution](GROUP_MISSING_OFFSETS.md) are implemented in source.
-Neither changes default fallback behavior or establishes new real-broker qualification.
+Neither changes default fallback behavior. Their separate plaintext 4.0.2/4.4.0
+probes qualify only the exact source and scenarios in the
+[additional observations](QUALIFICATION_OBSERVATIONS.md), not secure/failover behavior.
 
 Strict-default TLS termination during some failover sequences is a documented
 availability limit, not a claim that transparent failover passed. Default-off
