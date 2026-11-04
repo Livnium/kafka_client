@@ -1,3 +1,7 @@
+## 0.1.1 (experimental)
+
+- Replace the README title em dash with a hyphen. No client code changes.
+
 ## 0.1.0 (experimental)
 
 First experimental release candidate. The development milestones below are all
