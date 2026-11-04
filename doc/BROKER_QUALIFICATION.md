@@ -6,6 +6,11 @@ subscription pass, an incomplete concurrent soak, and plaintext ListOffsets/
 missing-position probes. They do not rerun or extend the older matrices below
 to the current `4701dd6` source.
 
+Later [exact-source mTLS checks](MTLS.md#later-exact-source-checks-on-2026-11-04-kafka-440)
+separately passed ten Kafka 4.4.0 cases on each tested SDK at `1199abd`.
+They do not extend any historical server-only matrix or older mTLS source
+results to a broader version, runtime or failure-mode claim.
+
 ## Recorded six-version native qualification, 2026-11-04
 
 This evidence qualifies native source `6f828d306cb1f6c3adc0638f9ba7ac727d1cf368`

@@ -110,7 +110,7 @@ Historical server-only TLS/SASL version-matrix results do not qualify mTLS.
 Results must identify exact source, SDK/OS and Kafka version. No publication,
 release, production-readiness or mobile-support claim follows from this fixture.
 
-### Observed checks on 2026-11-04
+### Implementation-source checks on 2026-11-04: Kafka 4.0.2
 
 For exact implementation source `81761d2` on Linux x64:
 
@@ -133,5 +133,59 @@ For exact implementation source `81761d2` on Linux x64:
   byte lists, passwords and paths did not survive into mTLS summaries. A simulated
   removal failure returned a failing status without claiming cleanup succeeded.
 
-No Kafka version other than 4.0.2, packaged mobile app, real OS lifecycle, sustained
-mTLS workload, certificate rotation, publication or release was qualified here.
+Those `81761d2` observations qualify no Kafka version other than 4.0.2, packaged
+mobile app, real OS lifecycle, sustained mTLS workload, certificate rotation,
+publication or release.
+
+### Later exact-source checks on 2026-11-04: Kafka 4.4.0
+
+Source `1199abdd2d9dff857eb936edcac2042d93f474bb`, tree
+`863971cab2405899eed0bbf84db29467af79113a`, separately passed **20 real-broker
+tests with zero qualification skips/failures** on Linux x64:
+
+| SDK | Exact Kafka version | Required-client-auth cases passed |
+| --- | --- | ---: |
+| Dart 3.2.6 | 4.4.0 | 10 |
+| Dart 3.12.0 | 4.4.0 | 10 |
+
+Each SDK ran the existing ten mTLS cases: PEM SSL produce/fetch, PKCS12 SSL
+produce/fetch, client identity plus PLAIN SASL_SSL produce/fetch, missing identity
+rejection on SSL and SASL_SSL, untrusted client identity rejection, independent
+server trust and hostname rejection, wrong PLAIN password rejection, and an
+operation-scoped stable OffsetFetch read over mutual TLS. The private fixture
+required client authentication, including explicit SASL_SSL listener overrides;
+the capture independently observed those configuration flags and Kafka 4.4.0.
+Wrong PLAIN password required `KafkaAuthenticationException`; other negative TLS
+cases required non-timeout rejection without pinning native error strings/classes.
+
+Java SSL/SASL_SSL CLI smoke and a Java producer succeeded during setup. The
+selected mTLS tests did **not** add a Java consumer consume-back assertion.
+The two no-broker prewarms intentionally skipped all ten cases each and are
+excluded from the 20 real passes. Source hashes, clean Git status and package
+resolution matched this exact candidate before and after each invocation. The
+minimum SDK used compatible `test` 1.25.2; the modern SDK used `test` 1.33.0 and a
+hash-verified cached runner. These are not published-package or later-source tests.
+
+The original fixed guards remained at 2 GiB free disk and 1 GiB MemAvailable.
+An initial resource preflight blocked correctly; it is not a qualification pass.
+Both final broker commands and guards exited successfully. Fixture traps removed
+ephemeral keys/credentials/private directories, all five selected ports rebound
+independently after each cleanup, and owned compiler temporary directories were
+empty. Minimum-SDK descendant monitoring was unavailable in this environment;
+zero observed descendants is not proof that no subprocesses ran. Its cleanup is
+supported by the trap and independent private-directory/port checks. The modern
+read-only parent monitor observed 33 descendants with none remaining.
+
+Raw test output and identity material were intentionally not retained. Separate
+fixed-field receipts preserve source/config/runtime observations, distribution
+verification, sampled resources and cleanup results; they are not shipped here.
+The captured library/pubspec source-map SHA256 is
+`ee889f3da2dc140c93f8c61444bdb40c3db79fbdaae7372fd20305e55aae0875`.
+
+This qualifies only the stated Kafka 4.4.0/Linux/two-SDK mTLS scenarios. Synthetic
+one-day PKI and local plaintext admin/controller plumbing do not qualify
+production key storage, revocation, expiry, chain rotation, mobile/device trust,
+failover/failure recovery or endurance. The run did not qualify graceful stop,
+broader broker matrices, a release or general production readiness. Earlier
+Kafka 4.0.2 checks remain attributed to `81761d2`, not a two-version rerun of
+this newer source.

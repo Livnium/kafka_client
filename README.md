@@ -275,7 +275,7 @@ Internal `src/` libraries are not stable API.
 | TLS, server authenticated | System roots or explicit custom CA; hostname validation mandatory |
 | TLS + SASL PLAIN | Qualified in the exact single-node broker matrix above |
 | SASL over plaintext | Rejected before connection/authentication |
-| Optional mutual TLS | Client PEM/PKCS12 identity in source; see [mTLS contract](doc/MTLS.md) |
+| Optional mutual TLS | Separate source-specific 4.0.2/4.4.0 checks; see [mTLS contract](doc/MTLS.md) |
 | SCRAM, OAuth, Kerberos, SASL reauthentication | Not implemented |
 
 For a runnable secure-only example, configuration and failure handling, see
@@ -455,6 +455,12 @@ The separate `bash tool/run_mtls_broker_integration.sh` opts into
 `ssl.client.auth=required`, creates ephemeral client identities, and checks SSL,
 SASL_SSL, strict server validation and scoped stable reads. It is not part of the
 historical server-only TLS/SASL matrix. See [mTLS](doc/MTLS.md).
+
+At source **1199abd**, Kafka **4.4.0** separately passed all ten required-client-auth
+cases on each of Dart **3.2.6** and **3.12.0** on Linux x64, 20 real passes total.
+This is distinct from the older 4.0.2/81761d2 checks. Java setup smoke is not a
+consumer consume-back oracle, and these observations do not qualify production
+PKI, mobile, failover or endurance. See the [exact-source limits](doc/MTLS.md#later-exact-source-checks-on-2026-11-04-kafka-440).
 
 ## Operational recovery checks
 

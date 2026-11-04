@@ -28,6 +28,12 @@ Separate plaintext probes on Kafka 4.0.2/4.4.0 cover explicit ListOffsets at
 observations do not refresh the complete operational matrix or other SDKs,
 packaged apps or native executable forms for the latest checkout.
 
+Separate [mTLS observations](MTLS.md#later-exact-source-checks-on-2026-11-04-kafka-440)
+at exact source `1199abd` passed ten Kafka 4.4.0 required-client-auth cases on
+each of Dart 3.2.6 and 3.12.0 on Linux x64. This does not repeat the complete
+server-only matrix or qualify mobile, production PKI, failover or endurance.
+The older Kafka 4.0.2 mTLS observations remain scoped to `81761d2`.
+
 Historical operational evidence uses standalone Dart 3.2.6 and 3.12.0 on one
 Linux x64 cloud host with Kafka 4.0.2; it does not extend the full operational
 suite to the other broker versions or the latest source.

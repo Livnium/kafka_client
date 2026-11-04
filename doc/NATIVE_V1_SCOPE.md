@@ -96,6 +96,10 @@ Optional native [client certificate identities](MTLS.md) are implemented in
 source. They preserve independent server trust and every existing recovery
 policy. This is separate from the historical server-only TLS/SASL matrix, and
 does not establish packaged mobile support or general certificate rotation.
+The [source-specific mTLS observations](MTLS.md#later-exact-source-checks-on-2026-11-04-kafka-440)
+record ten Kafka 4.4.0 cases per SDK at `1199abd` on Linux/Dart 3.2.6 and 3.12.0.
+They do not carry the older 4.0.2/`81761d2` results to this newer source or close
+production-PKI, failover or endurance gates.
 
 Separate opt-in [graceful consumer stop](GROUP_CONSUMER.md#separate-opt-in-graceful-stop)
 is implemented in source. Its fixed grace deadline does not bound arbitrary

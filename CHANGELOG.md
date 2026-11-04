@@ -13,6 +13,9 @@
   validation, PLAIN requirements and connection ownership. Document iOS PKCS12
   restrictions without claiming mobile qualification. A separate opt-in broker
   fixture requires client certificates; historical qualification is unchanged.
+  Exact source `1199abd` separately passed ten Kafka 4.4.0 mTLS cases on each
+  Linux SDK (3.2.6 and 3.12.0); older 4.0.2 checks remain scoped to `81761d2`.
+  These results do not qualify production PKI, mobile, failover or endurance.
 
 - Add opt-in managed `missingOffsetPosition` earliest/latest resolution after
   successful missing commits, preserving numeric precedence, position-floor
