@@ -1,0 +1,566 @@
+{
+  "generator" : "GenerateOffsetFetchVectors.java",
+  "kafkaVersion" : "4.0.2",
+  "sourceSha256" : "d7f12740ff7e710c4306db2c67a9ae0c24686fdd3139b8cce7d1d5984c825910",
+  "kafkaClientJarSha256" : "90ef3a38696ee29e4f8dec2b2910bd31d8da0e69cb53a62a231a7d05fea32ad9",
+  "networkUsed" : false,
+  "brokerObserved" : false,
+  "note" : "Official wire-representable golden codec vectors, not broker-semantic examples. Offset Long.MIN_VALUE and epoch Integer.MIN_VALUE are signed boundary tests. Large integers require exact integer parsing, not binary64.",
+  "cases" : [ {
+    "name" : "v5-baseline",
+    "apiKey" : 9,
+    "version" : 5,
+    "requireStable" : false,
+    "requireStablePresentOnWire" : false,
+    "requestHeaderVersion" : 1,
+    "responseHeaderVersion" : 0,
+    "correlationId" : 305397810,
+    "clientId" : "官方-探针",
+    "tagged" : false,
+    "roundtripVerified" : true,
+    "request" : {
+      "file" : "v5-baseline.request.bin",
+      "lengthBytes" : 98,
+      "lengthPrefix" : 94,
+      "headerBytes" : 23,
+      "bodyBytes" : 71,
+      "sha256" : "05b703080c9b7f2af53067810fa00ae2de04475d8abe4a3f1fdfa780e4f3f0fa",
+      "hex" : "0000005e0009000512340032000de5ae98e696b92de68ea2e992880012e7bb842de99baa2df09f99822d636166c3a9000000010011e4b8bbe9a2982df09f99822d636166c3a900000006000000000000000100000002000000030000000400000005"
+    },
+    "response" : {
+      "file" : "v5-baseline.response.bin",
+      "lengthBytes" : 206,
+      "lengthPrefix" : 202,
+      "headerBytes" : 4,
+      "bodyBytes" : 198,
+      "sha256" : "ad5034d379599cc5d83a154304d40b8ac1a9cef9c53f188f5b31764c1fdecefe",
+      "hex" : "000000ca123400320000007b000000010011e4b8bbe9a2982df09f99822d636166c3a90000000600000000ffffffffffffffffffffffffffff00000000000100000000000000000000000000000000000000020000000100000001000000010011e99d9ee7a9ba2df09f99822d636166c3a900000000000300200000000000017fffffff00086d657461646174610000000000047fffffffffffffff7ffffffeffff00000000000580000000000000008000000000147369676e65642d776972652d626f756e6461727900170000"
+    },
+    "decodedRequest" : {
+      "groupId" : "组-雪-\uD83D\uDE42-café",
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitionIndexes" : [ 0, 1, 2, 3, 4, 5 ]
+      } ]
+    },
+    "decodedResponse" : {
+      "throttleTimeMs" : 123,
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitions" : [ {
+          "partitionIndex" : 0,
+          "committedOffset" : -1,
+          "committedLeaderEpoch" : -1,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 1,
+          "committedOffset" : 0,
+          "committedLeaderEpoch" : 0,
+          "metadata" : "",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 2,
+          "committedOffset" : 4294967297,
+          "committedLeaderEpoch" : 1,
+          "metadata" : "非空-\uD83D\uDE42-café",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 3,
+          "committedOffset" : 9007199254740993,
+          "committedLeaderEpoch" : 2147483647,
+          "metadata" : "metadata",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 4,
+          "committedOffset" : 9223372036854775807,
+          "committedLeaderEpoch" : 2147483646,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 5,
+          "committedOffset" : -9223372036854775808,
+          "committedLeaderEpoch" : -2147483648,
+          "metadata" : "signed-wire-boundary",
+          "errorCode" : 23
+        } ]
+      } ],
+      "errorCode" : 0
+    },
+    "requestHeaderTags" : [ ],
+    "responseHeaderTags" : [ ],
+    "requestBodyTags" : [ ],
+    "requestTopicTags" : [ ],
+    "responseBodyTags" : [ ],
+    "responseTopicTags" : [ ],
+    "responsePartition2Tags" : [ ]
+  }, {
+    "name" : "v7-false",
+    "apiKey" : 9,
+    "version" : 7,
+    "requireStable" : false,
+    "requireStablePresentOnWire" : true,
+    "requestHeaderVersion" : 2,
+    "responseHeaderVersion" : 1,
+    "correlationId" : 305397830,
+    "clientId" : "官方-探针",
+    "tagged" : false,
+    "roundtripVerified" : true,
+    "request" : {
+      "file" : "v7-false.request.bin",
+      "lengthBytes" : 94,
+      "lengthPrefix" : 90,
+      "headerBytes" : 24,
+      "bodyBytes" : 66,
+      "sha256" : "009da267cf26ab1c2a40493b245a967434aacaae19cc67f4e7fe35523d44af18",
+      "hex" : "0000005a0009000712340046000de5ae98e696b92de68ea2e992880013e7bb842de99baa2df09f99822d636166c3a90212e4b8bbe9a2982df09f99822d636166c3a907000000000000000100000002000000030000000400000005000000"
+    },
+    "response" : {
+      "file" : "v7-false.response.bin",
+      "lengthBytes" : 202,
+      "lengthPrefix" : 198,
+      "headerBytes" : 5,
+      "bodyBytes" : 193,
+      "sha256" : "6cd86199ef42c613ac748d934f54e3323153b2335a8dceee453abbb8880c7abc",
+      "hex" : "000000c612340046000000007b0212e4b8bbe9a2982df09f99822d636166c3a90700000000ffffffffffffffffffffffff0000000000000001000000000000000000000000010000000000000200000001000000010000000112e99d9ee7a9ba2df09f99822d636166c3a90000000000000300200000000000017fffffff096d65746164617461000000000000047fffffffffffffff7ffffffe0000000000000005800000000000000080000000157369676e65642d776972652d626f756e6461727900170000000000"
+    },
+    "decodedRequest" : {
+      "groupId" : "组-雪-\uD83D\uDE42-café",
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitionIndexes" : [ 0, 1, 2, 3, 4, 5 ]
+      } ],
+      "requireStable" : false
+    },
+    "decodedResponse" : {
+      "throttleTimeMs" : 123,
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitions" : [ {
+          "partitionIndex" : 0,
+          "committedOffset" : -1,
+          "committedLeaderEpoch" : -1,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 1,
+          "committedOffset" : 0,
+          "committedLeaderEpoch" : 0,
+          "metadata" : "",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 2,
+          "committedOffset" : 4294967297,
+          "committedLeaderEpoch" : 1,
+          "metadata" : "非空-\uD83D\uDE42-café",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 3,
+          "committedOffset" : 9007199254740993,
+          "committedLeaderEpoch" : 2147483647,
+          "metadata" : "metadata",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 4,
+          "committedOffset" : 9223372036854775807,
+          "committedLeaderEpoch" : 2147483646,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 5,
+          "committedOffset" : -9223372036854775808,
+          "committedLeaderEpoch" : -2147483648,
+          "metadata" : "signed-wire-boundary",
+          "errorCode" : 23
+        } ]
+      } ],
+      "errorCode" : 0
+    },
+    "requestHeaderTags" : [ ],
+    "responseHeaderTags" : [ ],
+    "requestBodyTags" : [ ],
+    "requestTopicTags" : [ ],
+    "responseBodyTags" : [ ],
+    "responseTopicTags" : [ ],
+    "responsePartition2Tags" : [ ]
+  }, {
+    "name" : "v7-true",
+    "apiKey" : 9,
+    "version" : 7,
+    "requireStable" : true,
+    "requireStablePresentOnWire" : true,
+    "requestHeaderVersion" : 2,
+    "responseHeaderVersion" : 1,
+    "correlationId" : 305397831,
+    "clientId" : "官方-探针",
+    "tagged" : false,
+    "roundtripVerified" : true,
+    "request" : {
+      "file" : "v7-true.request.bin",
+      "lengthBytes" : 94,
+      "lengthPrefix" : 90,
+      "headerBytes" : 24,
+      "bodyBytes" : 66,
+      "sha256" : "0752fc1ed271162bcc713a025e03a1477190b2ef9a3d5540e39b3a01650e4eca",
+      "hex" : "0000005a0009000712340047000de5ae98e696b92de68ea2e992880013e7bb842de99baa2df09f99822d636166c3a90212e4b8bbe9a2982df09f99822d636166c3a907000000000000000100000002000000030000000400000005000100"
+    },
+    "response" : {
+      "file" : "v7-true.response.bin",
+      "lengthBytes" : 202,
+      "lengthPrefix" : 198,
+      "headerBytes" : 5,
+      "bodyBytes" : 193,
+      "sha256" : "1c2b151b789e4fa93a8b5cfb4d4acd8330fabc8313a03204a595617e2d174994",
+      "hex" : "000000c612340047000000007b0212e4b8bbe9a2982df09f99822d636166c3a90700000000ffffffffffffffffffffffff0000000000000001000000000000000000000000010000000000000200000001000000010000000112e99d9ee7a9ba2df09f99822d636166c3a90000000000000300200000000000017fffffff096d65746164617461000000000000047fffffffffffffff7ffffffe0000000000000005800000000000000080000000157369676e65642d776972652d626f756e6461727900170000000000"
+    },
+    "decodedRequest" : {
+      "groupId" : "组-雪-\uD83D\uDE42-café",
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitionIndexes" : [ 0, 1, 2, 3, 4, 5 ]
+      } ],
+      "requireStable" : true
+    },
+    "decodedResponse" : {
+      "throttleTimeMs" : 123,
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitions" : [ {
+          "partitionIndex" : 0,
+          "committedOffset" : -1,
+          "committedLeaderEpoch" : -1,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 1,
+          "committedOffset" : 0,
+          "committedLeaderEpoch" : 0,
+          "metadata" : "",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 2,
+          "committedOffset" : 4294967297,
+          "committedLeaderEpoch" : 1,
+          "metadata" : "非空-\uD83D\uDE42-café",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 3,
+          "committedOffset" : 9007199254740993,
+          "committedLeaderEpoch" : 2147483647,
+          "metadata" : "metadata",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 4,
+          "committedOffset" : 9223372036854775807,
+          "committedLeaderEpoch" : 2147483646,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 5,
+          "committedOffset" : -9223372036854775808,
+          "committedLeaderEpoch" : -2147483648,
+          "metadata" : "signed-wire-boundary",
+          "errorCode" : 23
+        } ]
+      } ],
+      "errorCode" : 0
+    },
+    "requestHeaderTags" : [ ],
+    "responseHeaderTags" : [ ],
+    "requestBodyTags" : [ ],
+    "requestTopicTags" : [ ],
+    "responseBodyTags" : [ ],
+    "responseTopicTags" : [ ],
+    "responsePartition2Tags" : [ ]
+  }, {
+    "name" : "v7-false-tags",
+    "apiKey" : 9,
+    "version" : 7,
+    "requireStable" : false,
+    "requireStablePresentOnWire" : true,
+    "requestHeaderVersion" : 2,
+    "responseHeaderVersion" : 1,
+    "correlationId" : 305397832,
+    "clientId" : "官方-探针",
+    "tagged" : true,
+    "roundtripVerified" : true,
+    "request" : {
+      "file" : "v7-false-tags.request.bin",
+      "lengthBytes" : 124,
+      "lengthPrefix" : 120,
+      "headerBytes" : 34,
+      "bodyBytes" : 86,
+      "sha256" : "fec0a707f10df084111400d8e6a8a9cc91f49626984971309b6bc15f313e7b12",
+      "hex" : "000000780009000712340048000de5ae98e696b92de68ea2e9928802020082010500017f80ff13e7bb842de99baa2df09f99822d636166c3a90212e4b8bbe9a2982df09f99822d636166c3a90700000000000000010000000200000003000000040000000502020082010500017f80ff0002020082010500017f80ff"
+    },
+    "response" : {
+      "file" : "v7-false-tags.response.bin",
+      "lengthBytes" : 242,
+      "lengthPrefix" : 238,
+      "headerBytes" : 15,
+      "bodyBytes" : 223,
+      "sha256" : "79edefd58e1e83c5eddc4b87b3329c9b8c18a4ea73000482658341956e982121",
+      "hex" : "000000ee1234004802020082010500017f80ff0000007b0212e4b8bbe9a2982df09f99822d636166c3a90700000000ffffffffffffffffffffffff0000000000000001000000000000000000000000010000000000000200000001000000010000000112e99d9ee7a9ba2df09f99822d636166c3a9000002020082010500017f80ff0000000300200000000000017fffffff096d65746164617461000000000000047fffffffffffffff7ffffffe0000000000000005800000000000000080000000157369676e65642d776972652d626f756e6461727900170002020082010500017f80ff001002020082010500017f80ff"
+    },
+    "decodedRequest" : {
+      "groupId" : "组-雪-\uD83D\uDE42-café",
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitionIndexes" : [ 0, 1, 2, 3, 4, 5 ]
+      } ],
+      "requireStable" : false
+    },
+    "decodedResponse" : {
+      "throttleTimeMs" : 123,
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitions" : [ {
+          "partitionIndex" : 0,
+          "committedOffset" : -1,
+          "committedLeaderEpoch" : -1,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 1,
+          "committedOffset" : 0,
+          "committedLeaderEpoch" : 0,
+          "metadata" : "",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 2,
+          "committedOffset" : 4294967297,
+          "committedLeaderEpoch" : 1,
+          "metadata" : "非空-\uD83D\uDE42-café",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 3,
+          "committedOffset" : 9007199254740993,
+          "committedLeaderEpoch" : 2147483647,
+          "metadata" : "metadata",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 4,
+          "committedOffset" : 9223372036854775807,
+          "committedLeaderEpoch" : 2147483646,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 5,
+          "committedOffset" : -9223372036854775808,
+          "committedLeaderEpoch" : -2147483648,
+          "metadata" : "signed-wire-boundary",
+          "errorCode" : 23
+        } ]
+      } ],
+      "errorCode" : 16
+    },
+    "requestHeaderTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "responseHeaderTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "requestBodyTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "requestTopicTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "responseBodyTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "responseTopicTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "responsePartition2Tags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ]
+  }, {
+    "name" : "v7-true-tags",
+    "apiKey" : 9,
+    "version" : 7,
+    "requireStable" : true,
+    "requireStablePresentOnWire" : true,
+    "requestHeaderVersion" : 2,
+    "responseHeaderVersion" : 1,
+    "correlationId" : 305397833,
+    "clientId" : "官方-探针",
+    "tagged" : true,
+    "roundtripVerified" : true,
+    "request" : {
+      "file" : "v7-true-tags.request.bin",
+      "lengthBytes" : 124,
+      "lengthPrefix" : 120,
+      "headerBytes" : 34,
+      "bodyBytes" : 86,
+      "sha256" : "96323097ff188f26fda4203a06bdb8e1cecf5ec0ea2e31bcb13ca52f11df4b04",
+      "hex" : "000000780009000712340049000de5ae98e696b92de68ea2e9928802020082010500017f80ff13e7bb842de99baa2df09f99822d636166c3a90212e4b8bbe9a2982df09f99822d636166c3a90700000000000000010000000200000003000000040000000502020082010500017f80ff0102020082010500017f80ff"
+    },
+    "response" : {
+      "file" : "v7-true-tags.response.bin",
+      "lengthBytes" : 242,
+      "lengthPrefix" : 238,
+      "headerBytes" : 15,
+      "bodyBytes" : 223,
+      "sha256" : "a933306190ca1a29bb24a6b8944dc5ba3ef690b1830bd01373af05fb73542384",
+      "hex" : "000000ee1234004902020082010500017f80ff0000007b0212e4b8bbe9a2982df09f99822d636166c3a90700000000ffffffffffffffffffffffff0000000000000001000000000000000000000000010000000000000200000001000000010000000112e99d9ee7a9ba2df09f99822d636166c3a9000002020082010500017f80ff0000000300200000000000017fffffff096d65746164617461000000000000047fffffffffffffff7ffffffe0000000000000005800000000000000080000000157369676e65642d776972652d626f756e6461727900170002020082010500017f80ff000002020082010500017f80ff"
+    },
+    "decodedRequest" : {
+      "groupId" : "组-雪-\uD83D\uDE42-café",
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitionIndexes" : [ 0, 1, 2, 3, 4, 5 ]
+      } ],
+      "requireStable" : true
+    },
+    "decodedResponse" : {
+      "throttleTimeMs" : 123,
+      "topics" : [ {
+        "name" : "主题-\uD83D\uDE42-café",
+        "partitions" : [ {
+          "partitionIndex" : 0,
+          "committedOffset" : -1,
+          "committedLeaderEpoch" : -1,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 1,
+          "committedOffset" : 0,
+          "committedLeaderEpoch" : 0,
+          "metadata" : "",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 2,
+          "committedOffset" : 4294967297,
+          "committedLeaderEpoch" : 1,
+          "metadata" : "非空-\uD83D\uDE42-café",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 3,
+          "committedOffset" : 9007199254740993,
+          "committedLeaderEpoch" : 2147483647,
+          "metadata" : "metadata",
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 4,
+          "committedOffset" : 9223372036854775807,
+          "committedLeaderEpoch" : 2147483646,
+          "metadata" : null,
+          "errorCode" : 0
+        }, {
+          "partitionIndex" : 5,
+          "committedOffset" : -9223372036854775808,
+          "committedLeaderEpoch" : -2147483648,
+          "metadata" : "signed-wire-boundary",
+          "errorCode" : 23
+        } ]
+      } ],
+      "errorCode" : 0
+    },
+    "requestHeaderTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "responseHeaderTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "requestBodyTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "requestTopicTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "responseBodyTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "responseTopicTags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ],
+    "responsePartition2Tags" : [ {
+      "tag" : 2,
+      "size" : 0,
+      "hex" : ""
+    }, {
+      "tag" : 130,
+      "size" : 5,
+      "hex" : "00017f80ff"
+    } ]
+  } ]
+}

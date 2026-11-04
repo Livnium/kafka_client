@@ -1,0 +1,11 @@
+kafka_client
+Copyright Livnium.
+
+The original client code is licensed under the Apache License, Version 2.0.
+The copyright attribution above does not claim ownership of third-party material.
+
+Retained Apache Kafka source captures, generated documentation assets and
+external development dependencies retain their original ownership and licenses.
+See THIRD_PARTY_NOTICES.md and third_party_licenses/ for the identified materials,
+upstream attribution notices and the distinction between the package payload and
+the full development repository. Existing third-party file headers are preserved.

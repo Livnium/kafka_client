@@ -1,0 +1,29 @@
+# .pubignore replaces .gitignore for the publication archive.
+.dart_tool/
+.git/
+pubspec.lock
+verification/
+doc/api/
+*.iml
+.idea/
+.vscode/
+*.log
+*.bundle
+*.tar.gz
+*.zip
+# Retained author experiment; not imported by the supported library.
+lib/src/codec/experimental_types.dart
+# Original unverified experiments/legacy APIs stay in the source repository,
+# but are not part of this narrowly supported publication candidate.
+lib/src/api/request/api9_offset_fetch_request.dart
+lib/src/api/request/api20_delete_topics_request.dart
+lib/src/api/response/api9_offset_fetch_response.dart
+lib/src/api/response/api20_delete_topics_response.dart
+lib/src/api/api_keys.dart
+lib/src/crc.dart
+lib/src/exceptions/
+lib/src/utils/
+
+# Local Python fixture bytecode is never source or publication payload.
+__pycache__/
+*.pyc
