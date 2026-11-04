@@ -54,9 +54,11 @@ The low-level `send` API retains its existing cancellation support and caveats.
 
 Lookup changes no consumer cursor, assignment, stored offset or reset policy. It
 does not join a group or commit. Fetch, subscription and managed-consumer defaults
-are unchanged. Managed consumers continue to read committed positions and use
-only explicit numeric missing-position fallbacks. There is no automatic
-ListOffsets call after missing commits, errors, rebalance or out-of-range Fetch.
+are unchanged. Managed consumers continue to read committed positions, with
+numeric-only missing-position fallbacks by default. Their separate nullable
+[`missingOffsetPosition` option](GROUP_MISSING_OFFSETS.md) can resolve successful
+missing values after numeric fallback and position-floor checks. It never
+converts errors into missing values or resets out-of-range Fetch.
 Applications coordinating a lookup with a group must still validate their exact
 current assignment before using its result; lookup grants no membership authority.
 

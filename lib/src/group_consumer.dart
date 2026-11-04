@@ -9,6 +9,7 @@ import 'group_offsets.dart';
 import 'group_processing.dart';
 import 'group_session.dart';
 import 'kafka_client_base.dart';
+import 'list_offsets.dart';
 import 'monotonic_retry_delay.dart';
 import 'reliability.dart';
 import 'security/security.dart';
@@ -78,9 +79,15 @@ class KafkaGroupConsumer {
   /// is committed after acknowledgement. False never commits and can replay
   /// acknowledged work on rejoin because positions are freshly read from Kafka.
   ///
-  /// Each assigned partition uses its stored next offset. A missing offset uses
-  /// only [missingOffsets]; absent fallback is terminal. This is not an implicit
-  /// earliest/latest lookup or an out-of-range/truncation reset policy.
+  /// Each assigned partition uses its stored next offset. A successful missing
+  /// value uses [missingOffsets] first, then [missingOffsetPosition] if provided.
+  /// The default null preserves numeric-only fallback and terminal absence.
+  /// The boundary option covers any assigned partition lacking a numeric entry,
+  /// including newly assigned partitions. Earliest can replay retained records;
+  /// latest skips records below the exclusive read-uncommitted high watermark.
+  /// It never handles lookup failures, known position-floor conflicts or
+  /// out-of-range Fetch. Boundary starts establish no committed-position floor.
+  /// Lookup and Fetch are separate reads; retention can race either one.
   ///
   /// [tlsFetchRecovery] explicitly enables bounded high-level Fetch recovery
   /// on each generation's dedicated data client. It requires [tls] and explicit
@@ -108,7 +115,8 @@ class KafkaGroupConsumer {
   /// versions fail without downgrade. Unstable-offset errors fail immediately
   /// unless [stableOffsetRetry] explicitly enables bounded error-88 retries.
   /// That policy requires [requireStableOffsets] and applies independently to
-  /// each owned generation position read. Closing the owned positions client
+  /// each owned generation committed-position read, not any subsequent boundary
+  /// lookup. Closing the owned positions client
   /// cancels pending retries; a retry never extends generation authority.
   /// Existing transport/coordinator retries and explicit missing-offset fallbacks
   /// remain unchanged, as do rejoin eligibility and previous-position floors.
@@ -118,6 +126,7 @@ class KafkaGroupConsumer {
     required Set<String> topics,
     required bool commitAfterProcessing,
     Map<String, Map<int, int>> missingOffsets = const {},
+    KafkaOffsetPosition? missingOffsetPosition,
     int maxRejoins = 3,
     bool rejoinOnCoordinatorLoss = false,
     bool requireStableOffsets = false,
@@ -223,6 +232,7 @@ class KafkaGroupConsumer {
         createCycle: createCycle,
         commitAfterProcessing: commitAfterProcessing,
         missingOffsets: fallbacks,
+        missingOffsetPosition: missingOffsetPosition,
         maxRejoins: maxRejoins,
         rejoinOnCoordinatorLoss: rejoinOnCoordinatorLoss,
         rejoinDelay: rejoinDelay));
@@ -256,6 +266,8 @@ abstract class GroupConsumerCycle {
   Future<KafkaGroupTermination> close();
   Future<Map<int, KafkaCommittedOffset?>> readPositions(
       String topic, Set<int> partitions);
+  Future<int> resolveMissingOffset(
+      String topic, int partition, KafkaOffsetPosition position);
   Future<void> closePositions();
   KafkaGroupProcessing processing(
       KafkaGroupAssignment token, Map<String, Map<int, int>> positions);
@@ -302,6 +314,15 @@ class _NativeConsumerCycle implements GroupConsumerCycle {
   }
 
   @override
+  Future<int> resolveMissingOffset(
+      String topic, int partition, KafkaOffsetPosition position) async {
+    if (_positionsClosing) throw StateError('Position client is closed');
+    final response = await (_positions ??= createPositions())
+        .listOffsets(topic, partition: partition, position: position);
+    return response.topics.single.partitions.single.offset;
+  }
+
+  @override
   Future<void> closePositions() {
     _positionsClosing = true;
     return _positionsClosed ??= _positions?.close() ?? Future<void>.value();
@@ -331,6 +352,7 @@ class GroupConsumerController {
   final GroupConsumerCycle Function() createCycle;
   final bool commitAfterProcessing;
   final Map<String, Map<int, int>> missingOffsets;
+  final KafkaOffsetPosition? missingOffsetPosition;
   final int maxRejoins;
   final bool rejoinOnCoordinatorLoss;
   Map<String, Map<int, int>> _previousPositionFloors = const {};
@@ -363,6 +385,7 @@ class GroupConsumerController {
       required this.createCycle,
       required this.commitAfterProcessing,
       required this.missingOffsets,
+      this.missingOffsetPosition,
       required this.maxRejoins,
       this.rejoinOnCoordinatorLoss = false,
       required this.rejoinDelay}) {
@@ -484,6 +507,7 @@ class GroupConsumerController {
   Future<Map<String, Map<int, int>>> _loadPositions(
       KafkaGroupAssignment token) async {
     final result = <String, Map<int, int>>{};
+    final unresolved = <String, List<int>>{};
     final names = token.partitions.keys.toList()..sort();
     for (final topic in names) {
       final ids = Set<int>.unmodifiable(token.partitions[topic]!);
@@ -509,6 +533,10 @@ class GroupConsumerController {
         }
         final next = brokerNext ?? missingOffsets[topic]?[id];
         if (next == null) {
+          if (missingOffsetPosition != null) {
+            (unresolved[topic] ??= []).add(id);
+            continue;
+          }
           throw StateError(
               'No committed offset or explicit fallback for $topic:$id');
         }
@@ -520,9 +548,24 @@ class GroupConsumerController {
           (_observedPositions[topic] ??= {})[id] = brokerNext;
         }
       }
-      result[topic] = Map.unmodifiable(offsets);
+      result[topic] = offsets;
     }
-    return Map.unmodifiable(result);
+    // Snapshot every exact committed response and validate all raw floors before
+    // adding boundary awaits. A boundary is a fallback, never committed evidence.
+    for (final topic in unresolved.entries) {
+      for (final id in topic.value) {
+        _check(token);
+        final next = await _cycle!
+            .resolveMissingOffset(topic.key, id, missingOffsetPosition!);
+        _check(token);
+        if (next < 0 || next > 9223372036854775807) {
+          throw const FormatException('Invalid resolved starting position');
+        }
+        result[topic.key]![id] = next;
+      }
+    }
+    return Map.unmodifiable(result.map((topic, offsets) =>
+        MapEntry(topic, Map<int, int>.unmodifiable(offsets))));
   }
 
   Future<void> _handle(KafkaGroupRecord record,

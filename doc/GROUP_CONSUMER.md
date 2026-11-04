@@ -66,12 +66,15 @@ Fetch and can maintain membership.
 
 - A valid stored next offset wins over `missingOffsets`.
 - A successful response with no stored offset uses the copied numeric fallback
-  for that topic/partition, subject to the opt-in replacement consistency guard. If it is absent, the runner fails before processing.
+  for that topic/partition, subject to the opt-in replacement consistency guard.
+  Without a numeric entry, separately opting into `missingOffsetPosition` looks
+  up earliest/latest; the default null still fails before processing. See
+  [missing-position resolution](GROUP_MISSING_OFFSETS.md) for precedence and risks.
 - Lookup failures, malformed/incomplete responses and invalid offsets never
   become a missing-offset fallback.
-- No earliest/latest lookup, retention reset, seek, log-truncation recovery or
-  interpretation of stored leader epochs is introduced. Literal zero can be out
-  of range for retained logs. The application must choose its fallback carefully.
+- Earliest/latest lookup is limited to that explicit missing-position option.
+  There is no retention reset, seek, log-truncation recovery or interpretation of
+  stored leader epochs. Literal zero can be out of range for retained logs.
 - Assignment validity is checked before and after every awaited read and again
   before processing is attached. Stale lookup results never reach the callback.
 - The position client must finish its actual close before data processing starts.

@@ -234,7 +234,11 @@ For an opt-in serial callback runner, `KafkaGroupConsumer` reloads committed
 positions for every generation and supports bounded rejoin after a confirmed
 heartbeat rebalance rejection. It waits for the actual old callback Future and
 all owned cleanup before replacing a generation. Missing offsets require an
-explicit numeric fallback; `commitAfterProcessing` is a required true/false
+explicit numeric fallback or `missingOffsetPosition: KafkaOffsetPosition.earliest`
+(or `.latest`), which resolves only successful missing commits. Numeric entries
+take precedence, known position-floor conflicts still fail, and out-of-range
+Fetch is never reset. See `doc/GROUP_MISSING_OFFSETS.md` for the opt-in scope and
+stability limits. `commitAfterProcessing` is a required true/false
 choice. Uncertain commits remain terminal; other failures remain terminal by default. See
 `doc/GROUP_CONSUMER.md` for the narrow policy and shutdown contract.
 A separate default-off coordinator-loss policy (`doc/GROUP_COORDINATOR_RECOVERY.md`)

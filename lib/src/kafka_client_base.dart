@@ -1244,7 +1244,8 @@ class KafkaClient {
   /// unreplicated log end. Returned timestamps can legitimately be -1.
   ///
   /// This read changes no cursor, assignment, stored offset or fallback policy.
-  /// It does not run automatically after a missing commit or out-of-range Fetch.
+  /// One-shot calls do not resolve missing commits or out-of-range Fetch. Managed
+  /// consumers have a separate opt-in missing-position policy.
   /// Positions can change between lookup and Fetch; retries observe a fresh
   /// boundary. Errors and unavailable successful offsets never become zero.
   ///

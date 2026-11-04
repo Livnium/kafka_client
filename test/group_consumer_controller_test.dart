@@ -22,6 +22,8 @@ class ConsumerCycle implements GroupConsumerCycle {
   final Map<String, List<int>> partitions;
   final reads = <String>[];
   final fetches = <int>[];
+  final boundaryRequests = <(String, int, KafkaOffsetPosition)>[];
+  Future<int> Function(String, int, KafkaOffsetPosition)? resolveBoundary;
   final commits = <Map<int, int>>[];
   int starts = 0, closes = 0, positionCloses = 0, dataCloses = 0;
   Map<String, Map<int, int>>? loaded;
@@ -69,6 +71,17 @@ class ConsumerCycle implements GroupConsumerCycle {
           for (final p in ps)
             p: const KafkaCommittedOffset(nextOffset: 10, leaderEpoch: -1)
         });
+  }
+
+  @override
+  Future<int> resolveMissingOffset(
+      String topic, int partition, KafkaOffsetPosition position) {
+    boundaryRequests.add((topic, partition, position));
+    final resolve = resolveBoundary;
+    if (resolve == null) {
+      return Future.error(StateError('Unexpected boundary lookup'));
+    }
+    return Future.sync(() => resolve(topic, partition, position));
   }
 
   @override

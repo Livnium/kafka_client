@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -55,6 +56,15 @@ class _Peer {
   int accepted = 0;
   int joins = 0, positionReads = 0, rejections = 0;
   bool holdJoin = false, holdPositions = false, emptyAssignment = false;
+  bool holdBoundary = false, supportsListOffsets = true, supportsStable = false;
+  bool holdBoundaryMetadata = false;
+  int boundaryOffset = 37, boundaryError = 0, fetchError = 0;
+  int unstableReplies = 0;
+  String? boundaryFailure;
+  final boundarySelectors = <int>[];
+  final positionVersions = <int>[];
+  final boundaryReceived = Completer<Socket>();
+  final boundaryMetadataReceived = Completer<Socket>();
   String? positionFailure;
   int storedOffset = 0;
   List<int> Function(int offset, int partition)? recordSet;
@@ -100,11 +110,12 @@ class _Peer {
           switch (key) {
             case 18:
               expect(version, 0);
-              const versions = {
+              final versions = {
                 1: 4,
+                if (supportsListOffsets) 2: 2,
                 3: 0,
                 8: 6,
-                9: 5,
+                9: supportsStable ? 7 : 5,
                 10: 2,
                 11: 4,
                 12: 2,
@@ -117,7 +128,7 @@ class _Peer {
               for (final v in versions.entries) {
                 b
                   ..addInt16(v.key)
-                  ..addInt16(v.value)
+                  ..addInt16(v.key == 9 && supportsStable ? 5 : v.value)
                   ..addInt16(v.value);
               }
             case 10:
@@ -166,33 +177,108 @@ class _Peer {
                 ..addInt32(0)
                 ..addInt16(rejectHeartbeat ? 27 : 0);
             case 9:
-              expect(version, 5);
-              expect(r.readString(), 'owned-group');
-              expect(r.readInt32(), 1);
-              expect(r.readString(), 'topic');
-              expect(r.readInt32(), 1);
-              expect(r.readInt32(), 0);
+              positionVersions.add(version);
+              final flexible = version == 7;
+              if (flexible) {
+                expect(supportsStable, isTrue);
+                expect(r.readInt8(), 0); // Request-header tags.
+                expect(utf8.decode(r.readRaw(r.readInt8() - 1)), 'owned-group');
+                expect(r.readInt8(), 2);
+                expect(utf8.decode(r.readRaw(r.readInt8() - 1)), 'topic');
+                expect(r.readInt8(), 2);
+                expect(r.readInt32(), 0);
+                expect(r.readInt8(), 0);
+                expect(r.readBoolean(), isTrue);
+                expect(r.readInt8(), 0);
+              } else {
+                expect(version, 5);
+                expect(r.readString(), 'owned-group');
+                expect(r.readInt32(), 1);
+                expect(r.readString(), 'topic');
+                expect(r.readInt32(), 1);
+                expect(r.readInt32(), 0);
+              }
               expect(r.isEOF, isTrue);
               positionReads++;
               if (!positionsReceived.isCompleted) positionsReceived.complete();
               if (holdPositions) continue;
               if (positionFailure == 'malformed') break;
+              final positionError = unstableReplies > 0
+                  ? 88
+                  : positionFailure == 'partition error'
+                      ? 29
+                      : 0;
+              if (unstableReplies > 0) unstableReplies--;
+              if (flexible) b.addInt8(0); // Response-header tags.
+              b.addInt32(0);
+              if (flexible) {
+                b
+                  ..addInt8(2)
+                  ..addInt8(6)
+                  ..addRaw(utf8.encode('topic'))
+                  ..addInt8(2);
+              } else {
+                b
+                  ..addInt32(1)
+                  ..addString('topic')
+                  ..addInt32(1);
+              }
               b
                 ..addInt32(0)
-                ..addInt32(1)
-                ..addString('topic')
-                ..addInt32(1)
-                ..addInt32(0)
                 ..addInt64(storedOffset)
-                ..addInt32(-1)
-                ..addString(null)
-                ..addInt16(positionFailure == 'partition error' ? 29 : 0)
-                ..addInt16(positionFailure == 'group error' ? 30 : 0);
+                ..addInt32(-1);
+              if (flexible) {
+                b.addInt8(0); // Compact nullable metadata.
+              } else {
+                b.addString(null);
+              }
+              b.addInt16(positionError);
+              if (flexible) {
+                b
+                  ..addInt8(0) // Partition tags.
+                  ..addInt8(0); // Topic tags.
+              }
+              b.addInt16(positionFailure == 'group error' ? 30 : 0);
+              if (flexible) b.addInt8(0); // Response tags.
+            case 2:
+              expect(version, 2);
+              expect(r.readInt32(), -1);
+              expect(r.readInt8(), 0);
+              expect(r.readInt32(), 1);
+              expect(r.readString(), 'topic');
+              expect(r.readInt32(), 1);
+              expect(r.readInt32(), 0);
+              boundarySelectors.add(r.readInt64());
+              expect(r.isEOF, isTrue);
+              if (!boundaryReceived.isCompleted) {
+                boundaryReceived.complete(socket);
+              }
+              if (holdBoundary) continue;
+              if (boundaryFailure == 'malformed') break;
+              b
+                ..addInt32(0)
+                ..addInt32(boundaryFailure == 'empty' ? 0 : 1);
+              if (boundaryFailure != 'empty') {
+                b
+                  ..addString(boundaryFailure == 'topic' ? 'other' : 'topic')
+                  ..addInt32(1)
+                  ..addInt32(0)
+                  ..addInt16(boundaryError)
+                  ..addInt64(boundaryFailure == 'timestamp' ? 0 : -1)
+                  ..addInt64(
+                      boundaryFailure == 'unavailable' ? -1 : boundaryOffset);
+              }
             case 13:
               b
                 ..addInt32(0)
                 ..addInt16(0);
             case 3:
+              if (holdBoundaryMetadata && positionReads > 0) {
+                if (!boundaryMetadataReceived.isCompleted) {
+                  boundaryMetadataReceived.complete(socket);
+                }
+                continue;
+              }
               b
                 ..addInt32(1)
                 ..addInt32(1)
@@ -244,7 +330,7 @@ class _Peer {
                 ..addString('topic')
                 ..addInt32(1)
                 ..addInt32(p)
-                ..addInt16(0)
+                ..addInt16(fetchError)
                 ..addInt64(100)
                 ..addInt64(-1)
                 ..addInt32(-1)
@@ -349,6 +435,9 @@ void main() {
   KafkaGroupConsumer make(
           {bool commit = true,
           int maxRejoins = 2,
+          KafkaOffsetPosition? missingOffsetPosition,
+          bool requireStableOffsets = false,
+          KafkaStableOffsetRetry? stableOffsetRetry,
           Map<String, Map<int, int>> missingOffsets = const {}}) =>
       consumer = KafkaGroupConsumer(
           brokers: [peer.broker],
@@ -356,6 +445,9 @@ void main() {
           topics: {'topic'},
           commitAfterProcessing: commit,
           missingOffsets: missingOffsets,
+          missingOffsetPosition: missingOffsetPosition,
+          requireStableOffsets: requireStableOffsets,
+          stableOffsetRetry: stableOffsetRetry,
           maxRejoins: maxRejoins,
           rejoinDelay: const Duration(milliseconds: 20),
           heartbeatInterval: const Duration(milliseconds: 100),
@@ -543,6 +635,238 @@ void main() {
     expect(peer.fetches, isEmpty);
     expect(peer.commits, isEmpty);
   });
+
+  for (final position in KafkaOffsetPosition.values) {
+    for (final boundary in [0, 37, 9223372036854775807]) {
+      test('$position missing position resolves boundary $boundary unchanged',
+          () async {
+        peer
+          ..storedOffset = -1
+          ..boundaryOffset = boundary
+          ..recordSet = (_, __) => [];
+        final run = make(commit: false, missingOffsetPosition: position)
+            .run((_) => fail('The peer returns no records'));
+        await _until(() => peer.fetches.isNotEmpty);
+        consumer!.stop();
+        final result = await run.timeout(const Duration(seconds: 4));
+        expect(result.reason, KafkaGroupConsumerStopReason.cancelled);
+        expect(peer.boundarySelectors,
+            [position == KafkaOffsetPosition.earliest ? -2 : -1]);
+        expect(peer.fetches, everyElement(boundary));
+        expect(peer.positionVersions, [5]);
+        expect(peer.commits, isEmpty);
+      });
+    }
+  }
+
+  for (final stored in [0, 19]) {
+    test('stored $stored wins over numeric and boundary policies', () async {
+      peer
+        ..storedOffset = stored
+        ..supportsListOffsets = false
+        ..recordSet = (_, __) => [];
+      final run = make(
+          commit: false,
+          missingOffsetPosition: KafkaOffsetPosition.latest,
+          missingOffsets: {
+            'topic': {0: 42}
+          }).run((_) {});
+      await _until(() => peer.fetches.isNotEmpty);
+      consumer!.stop();
+      expect((await run).reason, KafkaGroupConsumerStopReason.cancelled);
+      expect(peer.fetches, everyElement(stored));
+      expect(peer.boundarySelectors, isEmpty);
+    });
+  }
+
+  test('numeric fallback wins without requiring ListOffsets capability',
+      () async {
+    peer
+      ..storedOffset = -1
+      ..supportsListOffsets = false;
+    final run = make(
+        missingOffsetPosition: KafkaOffsetPosition.earliest,
+        missingOffsets: {
+          'topic': {0: 42}
+        }).run((_) {});
+    await _until(() => peer.fetches.isNotEmpty);
+    consumer!.stop();
+    expect((await run).reason, KafkaGroupConsumerStopReason.cancelled);
+    expect(peer.fetches, everyElement(42));
+    expect(peer.boundarySelectors, isEmpty);
+    expect(peer.commits, isEmpty);
+  });
+
+  for (final failure in ['malformed', 'partition error', 'group error']) {
+    test('$failure OffsetFetch cannot invoke opted-in boundary lookup',
+        () async {
+      peer
+        ..storedOffset = -1
+        ..positionFailure = failure;
+      final result =
+          await make(missingOffsetPosition: KafkaOffsetPosition.latest)
+              .run((_) => fail('Position failure cannot admit processing'));
+      expect(result.reason, KafkaGroupConsumerStopReason.failure);
+      expect(peer.boundarySelectors, isEmpty);
+      expect(peer.fetches, isEmpty);
+      expect(peer.commits, isEmpty);
+      expect(peer.joins, 1);
+    });
+  }
+
+  for (final failure in [
+    'unsupported',
+    'error',
+    'malformed',
+    'empty',
+    'topic',
+    'unavailable',
+    'timestamp'
+  ]) {
+    test('$failure boundary response fails without Fetch commit or rejoin',
+        () async {
+      peer
+        ..storedOffset = -1
+        ..supportsListOffsets = failure != 'unsupported'
+        ..boundaryError = failure == 'error' ? 29 : 0
+        ..boundaryFailure = failure;
+      final result =
+          await make(missingOffsetPosition: KafkaOffsetPosition.earliest)
+              .run((_) => fail('Invalid boundary cannot admit processing'));
+      expect(result.reason, KafkaGroupConsumerStopReason.failure);
+      expect(result.error, isNotNull);
+      expect(peer.boundarySelectors, failure == 'unsupported' ? isEmpty : [-2]);
+      expect(peer.fetches, isEmpty);
+      expect(peer.commits, isEmpty);
+      expect(peer.joins, 1);
+    });
+  }
+
+  for (final stage in ['metadata', 'lookup']) {
+    for (final stop in [false, true]) {
+      test('${stop ? 'stop' : 'revoke'} closes pending boundary $stage client',
+          () async {
+        peer
+          ..storedOffset = -1
+          ..holdBoundary = stage == 'lookup'
+          ..holdBoundaryMetadata = stage == 'metadata';
+        final run = make(missingOffsetPosition: KafkaOffsetPosition.latest)
+            .run((_) => fail('Pending boundary cannot admit processing'));
+        final positionSocket = await (stage == 'lookup'
+                ? peer.boundaryReceived.future
+                : peer.boundaryMetadataReceived.future)
+            .timeout(const Duration(seconds: 3));
+        if (stop) {
+          consumer!.stop();
+        } else {
+          peer.rejectHeartbeat = true;
+        }
+        final result = await run.timeout(const Duration(seconds: 4));
+        expect(
+            result.reason,
+            stop
+                ? KafkaGroupConsumerStopReason.cancelled
+                : KafkaGroupConsumerStopReason.failure);
+        await _until(() => !peer.sockets.contains(positionSocket));
+        expect(result.generationsStarted, 1);
+        expect(peer.boundarySelectors, stage == 'lookup' ? [-1] : isEmpty);
+        expect(peer.fetches, isEmpty);
+        expect(peer.commits, isEmpty);
+        expect(peer.joins, 1);
+      });
+    }
+  }
+
+  for (final position in <KafkaOffsetPosition?>[
+    null,
+    ...KafkaOffsetPosition.values
+  ]) {
+    for (final stable in [false, true]) {
+      test('construction $position stable=$stable stays idle without I/O',
+          () async {
+        final c =
+            make(missingOffsetPosition: position, requireStableOffsets: stable);
+        expect(c.state, KafkaGroupConsumerState.idle);
+        expect(c.generationsStarted, 0);
+        c.stop();
+        expect((await c.closed).reason, KafkaGroupConsumerStopReason.cancelled);
+        expect(peer.accepted, 0);
+        expect(peer.keys, isEmpty);
+      });
+    }
+  }
+
+  test('out-of-range Fetch after boundary resolution never resets again',
+      () async {
+    peer
+      ..storedOffset = -1
+      ..fetchError = 1;
+    final result =
+        await make(missingOffsetPosition: KafkaOffsetPosition.earliest)
+            .run((_) => fail('Out-of-range Fetch cannot deliver a record'));
+    expect(result.reason, KafkaGroupConsumerStopReason.failure);
+    expect(result.error,
+        isA<KafkaBrokerException>().having((e) => e.errorCode, 'code', 1));
+    expect(peer.boundarySelectors, [-2]);
+    expect(peer.fetches, [37]);
+    expect(peer.commits, isEmpty);
+    expect(peer.joins, 1);
+  });
+
+  for (final scenario in [
+    'stable missing',
+    'retry unstable then missing',
+    'unstable terminal',
+    'unstable exhausted',
+    'unsupported stable'
+  ]) {
+    test('$scenario keeps stable OffsetFetch separate from boundary read',
+        () async {
+      final retry =
+          scenario.contains('retry') || scenario.contains('exhausted');
+      final succeeds =
+          scenario == 'stable missing' || scenario.contains('then');
+      peer
+        ..storedOffset = -1
+        ..supportsStable = scenario != 'unsupported stable'
+        ..unstableReplies = scenario.contains('unstable')
+            ? scenario.contains('exhausted')
+                ? 5
+                : 1
+            : 0;
+      final run = make(
+              requireStableOffsets: true,
+              stableOffsetRetry: retry
+                  ? KafkaStableOffsetRetry(
+                      maxAttempts: 2,
+                      timeout: const Duration(seconds: 2),
+                      retryDelay: Duration.zero)
+                  : null,
+              missingOffsetPosition: KafkaOffsetPosition.latest)
+          .run((_) => fail('The peer returns no records'));
+      if (succeeds) {
+        await _until(() => peer.fetches.isNotEmpty);
+        consumer!.stop();
+      }
+      final result = await run.timeout(const Duration(seconds: 4));
+      expect(
+          result.reason,
+          succeeds
+              ? KafkaGroupConsumerStopReason.cancelled
+              : KafkaGroupConsumerStopReason.failure);
+      expect(
+          peer.positionVersions,
+          scenario == 'unsupported stable'
+              ? []
+              : retry
+                  ? [7, 7]
+                  : [7]);
+      expect(peer.boundarySelectors, succeeds ? [-1] : isEmpty);
+      if (!succeeds) expect(peer.fetches, isEmpty);
+      expect(peer.commits, isEmpty);
+      expect(peer.joins, 1);
+    });
+  }
 
   test('zero rejoin budget ends after first eligible heartbeat revocation',
       () async {

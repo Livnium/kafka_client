@@ -1,5 +1,9 @@
 ## Unreleased native hardening
 
+- Add opt-in managed `missingOffsetPosition` earliest/latest resolution after
+  successful missing commits, preserving numeric precedence, position-floor
+  guards and owned cancellation. Out-of-range Fetch still fails without reset.
+  Deterministic coverage does not establish new real-broker qualification.
 - Add explicit earliest/latest partition lookup using ListOffsets v2, without new
   dependencies or changes to numeric Fetch/subscription/group fallback policies.
   This has deterministic protocol coverage, not a new real-broker qualification.

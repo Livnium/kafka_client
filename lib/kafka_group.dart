@@ -10,8 +10,8 @@
 /// Replacement is limited to eligible stable-heartbeat failures after successful
 /// callback, commit and owned cleanup drains. Other failures remain terminal.
 /// It reads fresh committed positions for each generation; missing positions
-/// require explicit numeric fallbacks. It does not silently reset offsets or
-/// provide general transparent group recovery.
+/// require explicit numeric fallbacks or the separate opt-in boundary lookup.
+/// It does not silently reset offsets or provide general transparent recovery.
 ///
 /// Assignment guards do not fence broker operations or asynchronous application
 /// effects. Neither API provides exactly-once application processing.

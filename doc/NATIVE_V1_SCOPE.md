@@ -77,10 +77,14 @@ prototype results count as native qualification or permission to ship web APIs.
 
 Compression, SCRAM/OAuth/Kerberos/mTLS/reauthentication, idempotent production,
 transactions/exactly-once workflows, read-committed consumption, automatic
-earliest/latest lookup or reset, automatic partition discovery, KIP-848 membership,
+out-of-range reset, automatic partition discovery, KIP-848 membership,
 general automatic group recovery and application-effect fencing are not provided.
 They become release blockers only if deliberately added to the approved scope.
 Their absence must remain clear to users.
+
+Explicit [ListOffsets](LIST_OFFSETS.md) and opt-in managed
+[missing-position resolution](GROUP_MISSING_OFFSETS.md) are implemented in source.
+Neither changes default fallback behavior or establishes new real-broker qualification.
 
 Strict-default TLS termination during some failover sequences is a documented
 availability limit, not a claim that transparent failover passed. Default-off
