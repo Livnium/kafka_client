@@ -1,9 +1,20 @@
-/// Experimental single-generation classic membership and bounded record delivery.
+/// Experimental classic-group sessions, delivery and bounded serial consumption.
 ///
-/// Sessions join once, maintain heartbeats and revoke locally on loss. They can
-/// deliver assigned records, with optional explicit processing acknowledgements
-/// and generation commits. They never automatically rejoin or commit. Assignment
-/// guards do not fence broker operations or asynchronous application effects.
+/// [KafkaGroupSession] joins one dynamic classic-group generation, maintains
+/// heartbeats and revokes locally on loss. Its delivery and processing handles
+/// expose assigned records, explicit acknowledgements and generation commits;
+/// the session does not automatically rejoin or commit.
+///
+/// [KafkaGroupConsumer] adds an owned serial processing callback, an explicit
+/// choice of commit-after-processing behavior and a finite rejoin policy.
+/// Replacement is limited to eligible stable-heartbeat failures after successful
+/// callback, commit and owned cleanup drains. Other failures remain terminal.
+/// It reads fresh committed positions for each generation; missing positions
+/// require explicit numeric fallbacks. It does not silently reset offsets or
+/// provide general transparent group recovery.
+///
+/// Assignment guards do not fence broker operations or asynchronous application
+/// effects. Neither API provides exactly-once application processing.
 library;
 
 export 'kafka_client.dart';

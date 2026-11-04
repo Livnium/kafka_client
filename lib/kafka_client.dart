@@ -1,10 +1,13 @@
-/// Experimental native Dart Kafka client with explicit partition/offset APIs.
+/// Experimental native Dart Kafka APIs with explicit partitions and offsets.
 ///
-/// The verified baseline is Kafka 4.0.2, plaintext or validated TLS, optional
-/// SASL PLAIN over TLS, uncompressed records, and read-uncommitted consumption.
-/// Manual broker-stored offsets are supported without coordinated membership.
-/// Group assignment/rebalancing, SCRAM, compression, idempotence and transactions
-/// are absent.
+/// The core client supports plaintext or validated TLS, optional SASL PLAIN over
+/// TLS, uncompressed magic-2 records, and read-uncommitted consumption. Explicit
+/// partition subscriptions and manual broker-stored offsets do not join a group.
+/// Separate experimental classic-group APIs in `kafka_group.dart` provide
+/// assignment, heartbeats, processing acknowledgements and bounded managed
+/// rejoin. They do not provide general transparent group recovery or exactly-once
+/// processing. SCRAM, compression, idempotent production and transactions are
+/// not implemented.
 ///
 /// Start with [KafkaClient], [Broker], and [KafkaRecord]. Always close clients.
 /// Advanced callers can import `package:kafka_client/kafka_protocol.dart` for
