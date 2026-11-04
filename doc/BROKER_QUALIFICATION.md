@@ -11,6 +11,12 @@ separately passed ten Kafka 4.4.0 cases on each tested SDK at `1199abd`.
 They do not extend any historical server-only matrix or older mTLS source
 results to a broader version, runtime or failure-mode claim.
 
+Separate [graceful-stop observations](GROUP_GRACEFUL_STOP_QUALIFICATION.md#separate-kafka-440-checks-at-46c6355)
+at `46c6355` passed 24 requested Kafka 4.4.0 cases across the two SDKs and
+plaintext/server-authenticated TLS/SASL_SSL PLAIN. They do not combine mTLS with
+grace, test broker failover or extend the earlier `693f509`/4.0.2 evidence to
+the newer source.
+
 ## Recorded six-version native qualification, 2026-11-04
 
 This evidence qualifies native source `6f828d306cb1f6c3adc0638f9ba7ac727d1cf368`

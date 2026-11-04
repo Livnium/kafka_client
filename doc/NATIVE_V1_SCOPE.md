@@ -105,6 +105,10 @@ Separate opt-in [graceful consumer stop](GROUP_CONSUMER.md#separate-opt-in-grace
 is implemented in source. Its fixed grace deadline does not bound arbitrary
 application work or actual closure. The [source-specific checks](GROUP_GRACEFUL_STOP_QUALIFICATION.md)
 do not broaden broker/version, mobile, failover or production-readiness claims.
+They separately record 24 Kafka 4.4.0 cases at `46c6355` across Dart 3.2.6/3.12.0
+and plaintext/server-authenticated TLS/SASL_SSL PLAIN, one broker/partition.
+This is distinct from `693f509`/4.0.2 and does not qualify mTLS-plus-grace or
+broader failure/load scenarios.
 
 Strict-default TLS termination during some failover sequences is a documented
 availability limit, not a claim that transparent failover passed. Default-off

@@ -34,6 +34,13 @@ each of Dart 3.2.6 and 3.12.0 on Linux x64. This does not repeat the complete
 server-only matrix or qualify mobile, production PKI, failover or endurance.
 The older Kafka 4.0.2 mTLS observations remain scoped to `81761d2`.
 
+Separate [graceful-stop checks](GROUP_GRACEFUL_STOP_QUALIFICATION.md#separate-kafka-440-checks-at-46c6355)
+at `46c6355` passed 12 requested Kafka 4.4.0 cases per SDK (24 total) across
+plaintext, server-authenticated TLS and SASL_SSL PLAIN on Linux x64. These are
+single-broker/partition observations, not mTLS-plus-grace, failover, endurance
+or refreshed ordinary SDK suites. Earlier 4.0.2 grace checks remain attributed
+to `693f509`.
+
 Historical operational evidence uses standalone Dart 3.2.6 and 3.12.0 on one
 Linux x64 cloud host with Kafka 4.0.2; it does not extend the full operational
 suite to the other broker versions or the latest source.

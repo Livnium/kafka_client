@@ -253,6 +253,11 @@ The separate `drainAndStop(timeout: ...)` opt-in stops admission while retaining
 heartbeats for the one owned callback and its configured commit, until the fixed
 deadline or loss. Its drain report is separate from actual `closed`/cleanup;
 ordinary `stop()` still revokes immediately and never admits a new commit.
+Separate [Kafka 4.4.0 grace checks](doc/GROUP_GRACEFUL_STOP_QUALIFICATION.md#separate-kafka-440-checks-at-46c6355)
+at source **46c6355** passed 24 requested cases across both tested SDKs and
+plaintext/server-authenticated TLS/SASL_SSL PLAIN. This single-broker result is
+not mTLS-plus-grace, failover or endurance qualification; earlier 4.0.2 evidence
+remains scoped to **693f509**.
 A separate default-off coordinator-loss policy (`doc/GROUP_COORDINATOR_RECOVERY.md`)
 allows narrowly classified fresh-generation replacement with the same drain and
 commit-safety requirements; it does not enable group-discovery TLS fallback.

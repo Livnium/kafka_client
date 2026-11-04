@@ -6,6 +6,8 @@ Observed 4 November 2026 for implementation commit
 [structured receipt](graceful_stop_qualification.json) records source hashes,
 SDK dependency snapshots, exact Kafka distribution and aggregate outcomes.
 Later documentation-only commits do not broaden these observations.
+The later Kafka 4.4.0 checks below qualify their own exact source and are not
+part of that `693f509` structured receipt.
 
 This qualifies the separate opt-in
 [`KafkaGroupConsumer.drainAndStop` contract](GROUP_CONSUMER.md#separate-opt-in-graceful-stop),
@@ -85,7 +87,7 @@ configs and raw broker logs, were removed. All seven owned ports were checked
 closed after the final run. Only sanitized summaries and ordinary test receipts
 were retained locally.
 
-## Limits
+## Limits of the Kafka 4.0.2 observations
 
 These are short, same-host, single-partition observations on Kafka 4.0.2. They do
 not qualify another Kafka release, multi-node/independent-host behavior, sustained
@@ -98,3 +100,62 @@ The grace deadline bounds the attempt to retain application/commit authority,
 not arbitrary code execution or actual closure. A `drained` report does not prove
 cleanup, broker departure or external-effect safety. No exactly-once, external
 fencing, guaranteed immediate partition handoff, publication or release follows.
+
+## Separate Kafka 4.4.0 checks at 46c6355
+
+Exact clean source `46c6355f193d1675ac680680cc462dd3674e5c02`, tree
+`3fb6fa6268e5c6f2d2a535a8de0282d38cab91ff`, passed **24 requested real-broker
+cases with zero failures** on Linux x64:
+
+| Dart SDK | Plaintext | Server-authenticated TLS | SASL_SSL/PLAIN | Total |
+| --- | ---: | ---: | ---: | ---: |
+| 3.2.6 | 4 | 4 | 4 | 12 |
+| 3.12.0 | 4 | 4 | 4 | 12 |
+
+Each mode/SDK ran the same four existing cases described above: reentrant grace
+with independent heartbeats and confirmed admitted-record commit, disabled
+commit with missing stored offset, grace expiry without late commit, and a real
+competing member revoking grace without late commit or rejoin. In the expiry
+case, 250 ms grace reported `deadlineExpired`, `callbackPending: true` and
+`commitPending: false`; the immutable report did not complete the held callback.
+Every report was followed by waiting for actual `closed` and owned cleanup.
+
+All four serial fixture invocations independently observed Kafka 4.4.0. The
+tests used one owned broker and partition, explicit numeric missing-offset
+fallbacks, strict server-authenticated TLS and SASL_SSL PLAIN where selected.
+**Client-certificate authentication was not enabled**: these are not mTLS-plus-
+grace tests. Local plaintext admin/controller plumbing is fixture-only.
+The secure fixture's Java security smoke/producer setup succeeded; the selected
+grace suite adds no Java consumer consume-back oracle.
+
+Each plaintext invocation passed four and skipped eight unconfigured secure
+definitions; each secure invocation passed eight and skipped four plaintext
+definitions. Those **24 gated other-mode skips** are excluded from the 24 real
+passes. Two broker-free prewarms each skipped all 12 definitions, another 24
+excluded skips. No requested mode failed or was missing.
+
+Explicit offline package configurations resolved the exact candidate. The
+minimum SDK used `test` 1.25.2; the modern SDK used `test` 1.33.0 and a
+SHA256-verified cached runner, compiling candidate library/tests freshly. Exact
+HEAD, clean status and all captured source hashes matched before and after each
+invocation. The library/pubspec source-map SHA256 was
+`2ee85ae687a763e08479655a199eeff837fea41ffc5e846fb81cffe138a2e759`.
+These checks do not rerun the ordinary SDK suites on this newer source.
+
+The unchanged resource guard required 2 GiB free disk and 1 GiB MemAvailable,
+sampled every five seconds; additional read-only samples observed compile/run
+footprints. All four guarded invocations exited zero with no resource violation.
+Both plaintext brokers stopped and owned data/control directories were removed.
+Both secure brokers stopped and ephemeral keys, credentials and private
+directories were removed. Seven selected ports independently rebound after
+cleanup, owned temporary directories were empty, and no observed descendants
+remained. An initial dispatch to a not-yet-created task directory did not run
+and is not counted as a test. Raw evidence is retained separately, not shipped
+here; secure output was sanitized by the existing fixture.
+
+This is a short Kafka 4.4.0/Linux/two-SDK observation, separate from the earlier
+`693f509`/4.0.2 results. A competing-member rebalance is not broker failover.
+Neither result qualifies mTLS-plus-grace, sustained load, endurance, production
+PKI, other platforms, producer recovery, exactly-once effects or published
+package bytes. A grace report bounds authority/admission, not arbitrary
+application work, actual closure or external-effect completion.

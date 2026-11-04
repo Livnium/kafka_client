@@ -7,6 +7,9 @@
   and external effects cannot be cancelled or fenced by this API. Separate
   source `693f509` checks passed 47 deterministic cases, both full SDK suites and
   12 Kafka 4.0.2 plaintext/TLS/SASL grace cases per SDK; limits remain explicit.
+  Later exact source `46c6355` separately passed 24 requested Kafka 4.4.0 grace
+  cases across both SDKs and plaintext/server-authenticated TLS/SASL_SSL PLAIN,
+  without mTLS-plus-grace, failover or endurance qualification.
 
 - Add optional, bounded and redacted PEM/PKCS12 client certificate identities
   through native SecurityContext, preserving independent server trust, hostname
