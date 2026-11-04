@@ -3,11 +3,19 @@
 This is an experimental native Dart client, not a production certification.
 A version number alone does not change that status. Publication is a separate,
 author-approved action; see [RELEASING.md](RELEASING.md).
+The published experimental release is 0.1.1; current source hardening is not a
+new published release. See [NATIVE_V1_SCOPE.md](NATIVE_V1_SCOPE.md) for the proposed
+native-only boundary, concrete release gates and explicitly deferred features.
 
 ## Contract being hardened
 
 - Native Dart VM sockets on the explicitly tested Linux/SDK matrix.
-- Kafka 4.0.2; Produce v3, Fetch v4, Metadata v0 and ApiVersions v0.
+- Produce v3, Fetch v4, Metadata v0 and ApiVersions v0. The `6f828d3` single-node
+  core/secure matrix covers exactly Kafka 4.0.0, 4.0.2, 4.1.2, 4.2.2, 4.3.2 and
+  4.4.0 on Dart 3.12.0/Linux x64. Later response-hardened `0d0c800` has separate
+  representative checks on 4.0.0 and 4.4.0 only. Older operational/fault/endurance
+  evidence is scoped separately to Kafka 4.0.2 and its tested source; see
+  [BROKER_QUALIFICATION.md](BROKER_QUALIFICATION.md).
 - Plaintext local connectivity, strict server-authenticated TLS, and SASL PLAIN
   only over verified TLS. No weak-certificate or plaintext-auth fallback.
 - Uncompressed magic-2 records, explicit partitions/offsets, read-uncommitted.
@@ -42,6 +50,15 @@ author-approved action; see [RELEASING.md](RELEASING.md).
 
 ## Evidence that must stay reproducible
 
+The pre-response-hardening `6f828d3` library/test snapshot passed 1,058 tests
+with 360 external-fixture skips on each of Dart 3.2.6 and 3.12.0, with clean analyzers. The separate exact
+broker matrix for that source passed 432 Dart cases and 12 Java consume-back
+oracles in total. Later `0d0c800` separately passed 26 core/default-security
+Dart cases and four Java consume-back checks across Kafka 4.0.0 and 4.4.0;
+this is not a full six-version or expanded secure-suite rerun.
+These results do not rerun every gate below. Raw qualification receipts are
+retained separately and are not shipped in this source/package checkout.
+
 1. Minimum and current tested SDK: analyzer, formatting, every unit regression.
 2. Actual Kafka plaintext and secured roundtrips, including independent official
    Java producer/consumer interoperability and trust/authentication failures.
@@ -63,13 +80,14 @@ author-approved action; see [RELEASING.md](RELEASING.md).
 9. Tested-source identity and retained logs. Historical receipts are evidence for
    their own source snapshot, not automatically the current tree.
 
-The development checkout retains the current receipt and logs in
+Historical development receipts identify logs in
 `verification/operations/`, `verification/secure_recovery/` and
 `verification/tls_fault_soak/`, with controlled memory follow-up in
 `verification/memory_isolation/` and the longer minimum-SDK follow-up in
 `verification/minimum_soak/`. Local native-runtime and secure-example checks
 are recorded in `verification/runtime_compatibility/`. Evidence logs are excluded from the prospective
-publication payload; use the source checkout to inspect them.
+publication payload; they are not included in every source checkout. Do not
+treat a reference to an absent receipt as a fresh verification result.
 
 The subsequent ordinary retry wait fix removes completed close-listener history
 without broadening retry policy. Direct count, shutdown, security and operational
@@ -136,14 +154,17 @@ a write failure is not converted into a silent retry.
 - Expand the network-fault matrix to independent-host partitions, kernel-level
   loss/latency, repeated leader changes and constrained resources under sustained
   load. The local proxy covers selected stalled/cut/fragmented TCP behavior only.
-- Independent-host deployment and any additional Kafka or operating-system
-  versions the author intends to support. Same-host processes are not independent
+- Independent-host deployment and any Kafka versions beyond the exact matrix,
+  or operating-system versions the author intends to support. The matrix's
+  added broker versions have not inherited the full fault/endurance results.
+  Same-host processes are not independent
   failure domains. Broker process crashes do not simulate host power loss.
 - A clear decision on whether high-level cancellation/overall deadlines belong
   in v1; current low-level semantics are documented and tested. Subscription
   cancellation stops new Fetch admission and awaits the current Fetch under its
   existing phase deadlines; it does not add immediate scoped transport abort.
-- Subscription product decisions: supplied versus earliest/latest offsets, fixed
+- Subscription product decisions if those features enter the selected v1 scope:
+  supplied versus earliest/latest offsets, fixed
   versus automatically discovered partitions, and coordinated consumer-group
   membership/assignment/rebalancing. Broker-stored offsets are now explicit
   manual APIs; durable processing and single-writer coordination are still the
@@ -154,9 +175,11 @@ a write failure is not converted into a silent retry.
   real OS lifecycle behavior. See [RUNTIME_COMPATIBILITY.md](RUNTIME_COMPATIBILITY.md).
 - An automated release gate that reruns these fixtures in the maintainer's actual
   CI environment; no CI account or workflow publication is assumed here.
-- Verify the selected Apache 2.0 license and separate third-party notices in the
-  final payload. Repository metadata and final version still need author decisions,
-  followed by explicit permission for external package validation and publication.
+- Recheck the selected Apache 2.0 license, Livnium attribution and separate
+  third-party notices in the next final payload. The package name, repository and
+  experimental 0.1.1 publication are already established. The next version,
+  support promise, external validation and publication need their own decisions
+  and authorization; historical publication does not authorize a new release.
 
 ## Running operational evidence
 

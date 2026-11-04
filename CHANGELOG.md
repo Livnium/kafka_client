@@ -1,3 +1,15 @@
+## Unreleased native hardening
+
+- Snapshot caller-owned Produce record lists and Metadata topic selections before
+  asynchronous discovery/retries; published 0.1.1 does not contain these changes.
+- Reject ambiguous leader routes and malformed Produce successes, with separate
+  representative core/security checks on Kafka 4.0.0 and 4.4.0 for `0d0c800`.
+- Select verified Kafka 4.x distributions explicitly in disposable fixture runners.
+  Record the earlier `6f828d3` six-version single-node qualification on
+  Dart 3.12.0/Linux x64, separately from historical fault/endurance and other runtime evidence.
+- Clarify the proposed native v1 boundary, remaining release gates and deferred
+  web work without adding a compatibility or production-readiness promise.
+
 ## 0.1.1 (experimental)
 
 - Replace the README title em dash with a hyphen. No client code changes.

@@ -6,10 +6,27 @@ on `dart:io`; there is no browser transport, including for Flutter Web.
 
 ## Observed and untested environments
 
-The retained operational evidence uses standalone Dart 3.2.6 and 3.12.0 on one
-Linux x64 cloud host, with Apache Kafka 4.0.2. The SDK range `^3.2.6` permits
-additional SDKs; those versions were not individually tested. The additional
-headless Flutter test-engine evidence below is narrower than a packaged app test.
+The pre-response-hardening native `6f828d3` library/test snapshot passed 1,058
+tests with 360 external-fixture skips and clean analyzers on each of standalone Dart 3.2.6 and
+3.12.0 on Linux x64. The library and Dart tests match that qualified source;
+the secure fixture CLI selection and its Python regressions were finalized later.
+These skipped external-fixture cases are not execution evidence.
+
+That source's separate single-node matrix qualified Kafka 4.0.0, 4.0.2, 4.1.2, 4.2.2,
+4.3.2 and 4.4.0 on Dart 3.12.0/Linux x64 only, with 4 plaintext and 68 secure
+cases per version plus official Java oracles. See [broker qualification](BROKER_QUALIFICATION.md).
+Later response-hardened source `0d0c800` separately passed 4 plaintext and 9
+secure cases on each of Kafka 4.0.0 and 4.4.0, plus four Java consume-back
+checks total, on Dart 3.12.0/Linux x64. This was not a repeat of the earlier
+six-version matrix or expanded 68-case secure selection.
+
+Historical operational evidence uses standalone Dart 3.2.6 and 3.12.0 on one
+Linux x64 cloud host with Kafka 4.0.2; it does not extend the full operational
+suite to the other broker versions or the latest source.
+
+The SDK range `^3.2.6` permits additional SDKs; those versions were not
+individually tested. The additional headless Flutter test-engine evidence below
+is narrower than a packaged app test. Browser and Flutter Web work is deferred.
 
 Historical secure-example validation passed TLS/SASL roundtrips and
 trust/hostname/authentication rejection as direct source and Linux x64 native
@@ -24,8 +41,9 @@ unit, sustained-use, failover and network-fault suites under AOT. Compilation
 for a different OS or architecture would not prove that output runs there.
 
 Still unverified: packaged Flutter desktop/mobile applications;
-Android/iOS/macOS/Windows; non-x64 targets;
-other Kafka releases; another physical host or independent failure domain.
+Android/iOS/macOS/Windows deployment qualification; non-x64 targets;
+Kafka/source combinations outside their exact recorded matrix; another physical
+host or independent failure domain. Historical macOS unit tests are not deployment evidence.
 Custom certificate formats and platform trust stores vary. In particular, a
 Linux PEM test does not establish mobile certificate-loading compatibility.
 The fixed fixtures exercise an explicit local CA, not a real deployment's

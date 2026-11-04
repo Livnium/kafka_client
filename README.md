@@ -7,17 +7,38 @@ Explicit partition subscriptions build on the same read path.
 
 ## Verified compatibility
 
-Tested with **Apache Kafka 4.0.2** using disposable single-node and replicated
-three-node KRaft fixtures, and **Dart 3.2.6 and 3.12.0** on Linux x64, including
-real-broker tests on both.
-The runtime SDK constraint remains `^3.2.6`; other SDK versions have not been
-individually tested. The runtime requires native `dart:io` sockets; browser
-targets, including Flutter Web, are unsupported. Nine real-broker cases passed
-in a Linux x64 headless Flutter 3.44.0 test engine with Dart 3.12.0. This is not
-packaged desktop/mobile or real OS lifecycle validation. See
-runtime compatibility (`doc/RUNTIME_COMPATIBILITY.md`) for exact scope and limits.
+Published **0.1.1 remains experimental**. This source checkout includes later
+native request-snapshot and response-validation hardening and version-selectable
+fixtures. It is not byte-for-byte the published package, and its retained `0.1.1` pubspec is not a
+new release. See the [native v1 scope and gates](doc/NATIVE_V1_SCOPE.md).
 
-Release preparation on macOS arm64 with Dart 3.12.0 passed 1,044 tests; 360
+On Linux x64 with **Dart 3.12.0**, native source **6f828d3** passed **4 plaintext and
+68 TLS/SASL-over-TLS cases per exact Kafka version**: **4.0.0, 4.0.2, 4.1.2,
+4.2.2, 4.3.2 and 4.4.0**. Independent official Java producer/consumer oracles
+also passed. These are single-node loopback results, not every 4.x release or
+the full fault/endurance matrix. See [broker qualification](doc/BROKER_QUALIFICATION.md)
+for source identity, case lists, reproduction and limits.
+
+That pre-response-hardening library/test snapshot passed **1,058 tests with 360
+external-fixture skips on each of Dart 3.2.6 and 3.12.0**, with clean analyzers.
+Skipped tests are not real-broker evidence. Historical Kafka 4.0.2 operational
+and replicated three-node results on both SDKs remain evidence for their own
+source snapshots, not automatic validation of every later change.
+
+After response-validation hardening, source **0d0c800** separately passed
+**4 plaintext and 9 secure cases on each of Kafka 4.0.0 and 4.4.0**, plus four
+official Java consume-back checks in total, on Dart 3.12.0/Linux x64. These
+representative checks do not extend the earlier six-version or 68-case secure
+matrix to the newer source. See [broker qualification](doc/BROKER_QUALIFICATION.md).
+
+The runtime SDK constraint remains `^3.2.6`; other SDK versions have not been
+individually tested. All public entrypoints require native `dart:io` sockets.
+Browser targets, including Flutter Web, are unsupported and deferred. Nine
+historical real-broker cases passed in a Linux x64 headless Flutter 3.44.0 test
+engine with Dart 3.12.0. This is not packaged desktop/mobile or real OS lifecycle
+validation. See [runtime compatibility](doc/RUNTIME_COMPATIBILITY.md).
+
+Historical release preparation on macOS arm64 with Dart 3.12.0 passed 1,044 tests; 360
 external-fixture cases were skipped. Six initial TLS fixture failures were
 resolved by adding the macOS-required `serverAuth` certificate extension to the
 owned test certificate. Untrusted-certificate and wrong-hostname rejection tests
@@ -213,7 +234,7 @@ Internal `src/` libraries are not stable API.
 | --- | --- |
 | Plaintext | Retained for compatibility/local fixtures; never sends SASL credentials |
 | TLS, server authenticated | System roots or explicit custom CA; hostname validation mandatory |
-| TLS + SASL PLAIN | Supported and tested with Kafka 4.0.2 |
+| TLS + SASL PLAIN | Qualified in the exact single-node broker matrix above |
 | SASL over plaintext | Rejected before connection/authentication |
 | SCRAM, OAuth, Kerberos, mTLS, SASL reauthentication | Not implemented |
 
