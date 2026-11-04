@@ -123,7 +123,7 @@ void main() {
                 ..addInt32(1)
                 ..addInt32(0)
                 ..addInt16(scenario == 'produceMetadata9Live' ? 0 : 9)
-                ..addInt64(-1)
+                ..addInt64(scenario == 'produceMetadata9Live' ? 42 : -1)
                 ..addInt64(-1)
                 ..addInt32(0);
             } else if (key == 1) {

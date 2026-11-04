@@ -1121,13 +1121,23 @@ class KafkaClient {
   Future<Broker> _leader(String topic, int partition,
       {_TlsFetchRecoveryState? recovery}) async {
     final m = await _metadataOnce({topic}, recovery: recovery);
-    for (final t in m.topics) {
-      if (t.name != topic) continue;
+    // Routing identities must be unique. Never pick whichever duplicate was
+    // listed first, even if only one duplicate advertises a usable endpoint.
+    // Raw metadata() keeps the original response available for diagnostics.
+    final topics = m.topics.where((t) => t.name == topic).toList();
+    if (topics.length > 1) {
+      throw FormatException('Ambiguous topic metadata');
+    }
+    for (final t in topics) {
       if (t.errorCode != 0) {
         throw KafkaBrokerException(t.errorCode, 'metadata');
       }
-      for (final p in t.partitions) {
-        if (p.partitionIndex != partition) continue;
+      final partitions =
+          t.partitions.where((p) => p.partitionIndex == partition).toList();
+      if (partitions.length > 1) {
+        throw FormatException('Ambiguous partition metadata');
+      }
+      for (final p in partitions) {
         // Kafka 4.0.2 Metadata v0 can report REPLICA_NOT_AVAILABLE when a
         // follower endpoint is absent while still supplying a live leader
         // (KafkaApis / KRaftMetadataCache). Preserve the raw metadata error;
@@ -1136,11 +1146,12 @@ class KafkaClient {
           throw KafkaBrokerException(
               p.errorCode == 0 ? 5 : p.errorCode, 'metadata');
         }
-        for (final b in m.brokers) {
-          if (b.nodeId == p.leaderId &&
-              b.host.isNotEmpty &&
-              b.port > 0 &&
-              b.port <= 65535) {
+        final leaders = m.brokers.where((b) => b.nodeId == p.leaderId).toList();
+        if (leaders.length > 1) {
+          throw FormatException('Ambiguous leader metadata');
+        }
+        for (final b in leaders) {
+          if (b.host.isNotEmpty && b.port > 0 && b.port <= 65535) {
             final broker = Broker(b.host, b.port);
             if (recovery?.excluded.contains(_brokerKey(broker)) == true) {
               throw _TlsFetchLeaderUnavailable();
@@ -1207,7 +1218,15 @@ class KafkaClient {
           if (p.errorCode != 0) {
             throw KafkaBrokerException(p.errorCode, 'produce');
           }
+          // This is a broker acknowledgement for a nonempty batch. The -1
+          // unavailable-offset sentinel is valid on errors, not this success.
+          if (p.baseOffset < 0) {
+            throw FormatException('Invalid successful Produce base offset');
+          }
         }
+      }
+      if (result.throttleTimeMs < 0) {
+        throw FormatException('Invalid successful Produce throttle duration');
       }
     }
     return result;
