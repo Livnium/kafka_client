@@ -13,13 +13,13 @@ explicit offset lookup, opt-in missing-position resolution, optional client TLS
 identities and opt-in graceful managed-consumer stop since published 0.1.1.
 The qualifications below retain their exact historical source identities;
 setting a version does not prove publication or production readiness.
-See the [native v1 scope and gates](doc/NATIVE_V1_SCOPE.md).
+See the [native v1 scope and gates](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/NATIVE_V1_SCOPE.md).
 
 On Linux x64 with **Dart 3.12.0**, native source **6f828d3** passed **4 plaintext and
 68 TLS/SASL-over-TLS cases per exact Kafka version**: **4.0.0, 4.0.2, 4.1.2,
 4.2.2, 4.3.2 and 4.4.0**. Independent official Java producer/consumer oracles
 also passed. These are single-node loopback results, not every 4.x release or
-the full fault/endurance matrix. See [broker qualification](doc/BROKER_QUALIFICATION.md)
+the full fault/endurance matrix. See [broker qualification](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/BROKER_QUALIFICATION.md)
 for source identity, case lists, reproduction and limits.
 
 That pre-response-hardening library/test snapshot passed **1,058 tests with 360
@@ -32,9 +32,9 @@ After response-validation hardening, source **0d0c800** separately passed
 **4 plaintext and 9 secure cases on each of Kafka 4.0.0 and 4.4.0**, plus four
 official Java consume-back checks in total, on Dart 3.12.0/Linux x64. These
 representative checks do not extend the earlier six-version or 68-case secure
-matrix to the newer source. See [broker qualification](doc/BROKER_QUALIFICATION.md).
+matrix to the newer source. See [broker qualification](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/BROKER_QUALIFICATION.md).
 
-Later [source-specific observations](doc/QUALIFICATION_OBSERVATIONS.md) include
+Later [source-specific observations](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/QUALIFICATION_OBSERVATIONS.md) include
 coordinator loss on 4.0.2/4.4.0, plus network faults and a distinct paced
 30-minute subscription pass on 4.0.2 at **a9c5d12**. Its four-worker operational soak
 remained resource-stopped and incomplete. Plaintext earliest/latest boundary
@@ -47,7 +47,7 @@ individually tested. All public entrypoints require native `dart:io` sockets.
 Browser targets, including Flutter Web, are unsupported and deferred. Nine
 historical real-broker cases passed in a Linux x64 headless Flutter 3.44.0 test
 engine with Dart 3.12.0. This is not packaged desktop/mobile or real OS lifecycle
-validation. See [runtime compatibility](doc/RUNTIME_COMPATIBILITY.md).
+validation. See [runtime compatibility](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/RUNTIME_COMPATIBILITY.md).
 
 Historical release preparation on macOS arm64 with Dart 3.12.0 passed 1,044 tests; 360
 external-fixture cases were skipped. Six initial TLS fixture failures were
@@ -136,7 +136,7 @@ Earliest means the retained beginning, which may be greater than zero. Latest
 is the exclusive read-uncommitted high watermark, not the last record offset.
 This is a separate read, not an automatic missing-offset or out-of-range reset.
 Lookup and Fetch are not an atomic snapshot. Existing numeric subscription and
-managed-group fallback policies are unchanged. See [ListOffsets](doc/LIST_OFFSETS.md).
+managed-group fallback policies are unchanged. See [ListOffsets](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/LIST_OFFSETS.md).
 
 ## Subscribe to explicit partitions
 
@@ -256,12 +256,12 @@ The separate `drainAndStop(timeout: ...)` opt-in stops admission while retaining
 heartbeats for the one owned callback and its configured commit, until the fixed
 deadline or loss. Its drain report is separate from actual `closed`/cleanup;
 ordinary `stop()` still revokes immediately and never admits a new commit.
-Separate [Kafka 4.4.0 grace checks](doc/GROUP_GRACEFUL_STOP_QUALIFICATION.md#separate-kafka-440-checks-at-46c6355)
+Separate [Kafka 4.4.0 grace checks](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/GROUP_GRACEFUL_STOP_QUALIFICATION.md#separate-kafka-440-checks-at-46c6355)
 at source **46c6355** passed 24 requested cases across both tested SDKs and
 plaintext/server-authenticated TLS/SASL_SSL PLAIN. This single-broker result is
 not mTLS-plus-grace, failover or endurance qualification; earlier 4.0.2 evidence
 remains scoped to **693f509**.
-Later [combined PEM mTLS/grace observations](doc/GROUP_GRACEFUL_MTLS_QUALIFICATION.md)
+Later [combined PEM mTLS/grace observations](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/GROUP_GRACEFUL_MTLS_QUALIFICATION.md)
 at **b188ec5** passed 32 cases across Kafka 4.0.2/4.4.0 and both SDKs using an
 external copied-test adapter, one broker/partition. They do not qualify
 PKCS12-plus-grace, production PKI, failover or endurance.
@@ -287,7 +287,7 @@ Internal `src/` libraries are not stable API.
 | TLS, server authenticated | System roots or explicit custom CA; hostname validation mandatory |
 | TLS + SASL PLAIN | Qualified in the exact single-node broker matrix above |
 | SASL over plaintext | Rejected before connection/authentication |
-| Optional mutual TLS | Separate source-specific 4.0.2/4.4.0 checks; see [mTLS contract](doc/MTLS.md) |
+| Optional mutual TLS | Separate source-specific 4.0.2/4.4.0 checks; see [mTLS contract](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/MTLS.md) |
 | SCRAM, OAuth, Kerberos, SASL reauthentication | Not implemented |
 
 For a runnable secure-only example, configuration and failure handling, see
@@ -327,7 +327,7 @@ For a broker requiring a client certificate, opt in with
 mandatory. The immutable identity applies to every connection made by that client,
 including advertised leaders and coordinators. iOS requires a PKCS12 identity
 containing both its key and chain; packaged Android/iOS mTLS is not qualified.
-See [identity limits, platform formats and separate qualification](doc/MTLS.md).
+See [identity limits, platform formats and separate qualification](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/MTLS.md).
 
 ## Reliability and failure semantics
 
@@ -431,7 +431,7 @@ dart analyze --fatal-infos
 dart test
 ```
 
-The [native CI baseline](doc/NATIVE_CI.md) defines pinned SDK/dependency checks
+The [native CI baseline](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/NATIVE_CI.md) defines pinned SDK/dependency checks
 and reports external-fixture skips separately. Its ordinary regressions are not
 a substitute for the real-broker qualification below.
 
@@ -466,13 +466,13 @@ these fixtures at production infrastructure or provide real credentials.
 The separate `bash tool/run_mtls_broker_integration.sh` opts into
 `ssl.client.auth=required`, creates ephemeral client identities, and checks SSL,
 SASL_SSL, strict server validation and scoped stable reads. It is not part of the
-historical server-only TLS/SASL matrix. See [mTLS](doc/MTLS.md).
+historical server-only TLS/SASL matrix. See [mTLS](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/MTLS.md).
 
 At source **1199abd**, Kafka **4.4.0** separately passed all ten required-client-auth
 cases on each of Dart **3.2.6** and **3.12.0** on Linux x64, 20 real passes total.
 This is distinct from the older 4.0.2/81761d2 checks. Java setup smoke is not a
 consumer consume-back oracle, and these observations do not qualify production
-PKI, mobile, failover or endurance. See the [exact-source limits](doc/MTLS.md#later-exact-source-checks-on-2026-11-04-kafka-440).
+PKI, mobile, failover or endurance. See the [exact-source limits](https://github.com/Livnium/kafka_client/blob/release/0.1.2/doc/MTLS.md#later-exact-source-checks-on-2026-11-04-kafka-440).
 
 ## Operational recovery checks
 
