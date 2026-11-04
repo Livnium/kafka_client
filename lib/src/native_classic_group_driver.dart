@@ -54,6 +54,7 @@ class NativeClassicGroupDriver implements ClassicGroupDriver {
     final response = await _client.send(ApiVersionsRequest(), broker: broker)
         as ApiVersionsResponse;
     _check(response.errorCode, 'api versions');
+    response.validateSupportedVersions();
     for (final entry in const {11: 4, 14: 2, 12: 2, 13: 2}.entries) {
       if (!response.apiVersions.any((v) =>
           v.apiKey == entry.key &&

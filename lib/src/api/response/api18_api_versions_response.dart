@@ -7,6 +7,27 @@ class ApiVersionsResponse extends KafkaResponse {
 
   ApiVersionsResponse(this.errorCode, this.apiVersions, super.correlationId);
 
+  /// Validates a successful capability table before it authorizes requests.
+  ///
+  /// Keys must be unique and all keys/version bounds must be nonnegative
+  /// signed INT16 values, with minimum <= maximum. Unknown future keys and
+  /// versions are allowed. Raw decoding retains the original diagnostics;
+  /// callers must handle a nonzero [errorCode] before using the table.
+  void validateSupportedVersions() {
+    final keys = <int>{};
+    for (final api in apiVersions) {
+      if (api.apiKey < 0 ||
+          api.apiKey > 32767 ||
+          api.minVersion < 0 ||
+          api.minVersion > 32767 ||
+          api.maxVersion < api.minVersion ||
+          api.maxVersion > 32767 ||
+          !keys.add(api.apiKey)) {
+        throw const FormatException('Invalid or duplicate API version range');
+      }
+    }
+  }
+
   /// Creates an ApiVersionsResponse from binary data.
   factory ApiVersionsResponse.fromBytes(List<int> data) {
     var reader = KafkaBytesReader.fromBytes(data);

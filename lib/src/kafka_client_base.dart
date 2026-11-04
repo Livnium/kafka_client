@@ -840,6 +840,7 @@ class KafkaClient {
       if (result.errorCode != 0) {
         throw StateError('ApiVersions error ${result.errorCode}');
       }
+      result.validateSupportedVersions();
       return result;
     });
     late ApiVersionsResponse response;
