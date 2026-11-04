@@ -143,11 +143,25 @@ class DecodedRecordBatches {
 /// Decodes records and preserves the last fully validated batch's log position.
 /// Control and compacted batches can advance this position without visible data.
 /// Batch order is preserved, without imposing cross-batch offset ordering.
-DecodedRecordBatches decodeRecordBatchesWithProgress(List<int> bytes) {
+DecodedRecordBatches decodeRecordBatchesWithProgress(List<int> bytes) =>
+    _decodeRecordBatchesWithProgress(bytes, allowIncompleteTail: false);
+
+/// Decodes a Fetch record set, ignoring a partial final batch only after at
+/// least one complete batch has passed validation. Kafka's byte-limited Fetch
+/// responses may cut the next batch short. A partial first batch still fails;
+/// omitted bytes never contribute records or progress. Standalone decoding
+/// through [decodeRecordBatchesWithProgress] remains strict.
+DecodedRecordBatches decodeFetchRecordBatchesWithProgress(List<int> bytes) =>
+    _decodeRecordBatchesWithProgress(bytes, allowIncompleteTail: true);
+
+DecodedRecordBatches _decodeRecordBatchesWithProgress(List<int> bytes,
+    {required bool allowIncompleteTail}) {
   final input = KafkaBytesReader.fromBytes(bytes);
   final result = <KafkaRecord>[];
   int? lastBatchOffset;
   while (input.isNotEOF) {
+    final canIgnoreTail = allowIncompleteTail && lastBatchOffset != null;
+    if (canIgnoreTail && input.remaining < 12) break;
     final baseOffset = input.readInt64();
     if (baseOffset < 0) {
       throw const FormatException('Negative record batch base offset');
@@ -155,6 +169,15 @@ DecodedRecordBatches decodeRecordBatchesWithProgress(List<int> bytes) {
     final batchLength = input.readInt32();
     if (batchLength < 49) {
       throw const FormatException('Invalid record batch length');
+    }
+    if (canIgnoreTail && input.remaining < batchLength) {
+      // Validate the magic byte when the partial header contains it, but never
+      // interpret a partial payload, its CRC, or its claimed final offset.
+      if (input.remaining >= 5 && input.peekNextBytes(5)[4] != 2) {
+        throw const FormatException(
+            'Only magic-2 record batches are supported');
+      }
+      break;
     }
     final batchBytes = input.readRaw(batchLength);
     final batch = KafkaBytesReader.fromBytes(batchBytes);

@@ -30,7 +30,8 @@ Uint8List _batch({
   return _checksum(bytes);
 }
 
-FetchPartitionResponse _fetch(List<int>? bytes) {
+List<int> _fetchBytes(List<int>? bytes,
+    {int error = 0, int watermark = 999, int stable = 998}) {
   final wire = KafkaBytesBuilder()
     ..addInt32(7) // Correlation id.
     ..addInt32(0) // Throttle.
@@ -38,12 +39,16 @@ FetchPartitionResponse _fetch(List<int>? bytes) {
     ..addString('progress')
     ..addInt32(1)
     ..addInt32(0) // Partition.
-    ..addInt16(0) // Error.
-    ..addInt64(999) // High watermark must not become progress.
-    ..addInt64(998)
+    ..addInt16(error)
+    ..addInt64(watermark) // High watermark must not become progress.
+    ..addInt64(stable)
     ..addInt32(-1) // Aborted transactions.
     ..addBytes(bytes);
-  return FetchResponse.fromBytes(wire.takeBytes())
+  return wire.takeBytes();
+}
+
+FetchPartitionResponse _fetch(List<int>? bytes) {
+  return FetchResponse.fromBytes(_fetchBytes(bytes))
       .topics
       .single
       .partitions
@@ -148,6 +153,135 @@ void main() {
           throwsFormatException,
           reason: 'truncated second batch $end');
     }
+  });
+
+  test('Fetch retains complete prefix and ignores every partial tail boundary',
+      () {
+    final prefix = _batch(base: 10, lastDelta: 4);
+    final tail = _batch(base: 15, lastDelta: 9);
+    for (var end = 1; end < tail.length; end++) {
+      final partial = tail.sublist(0, end);
+      final result = _fetch([...prefix, ...partial]);
+      expect(result.records.map((r) => r.offset), [10], reason: 'tail $end');
+      expect(result.lastBatchOffset, 14, reason: 'tail $end');
+      // The standalone decoder remains strict for the identical bytes.
+      expect(() => decodeRecordBatchesWithProgress([...prefix, ...partial]),
+          throwsFormatException);
+    }
+  });
+
+  test('Fetch rejects every nonempty incomplete first batch', () {
+    final bytes = _batch();
+    for (var end = 1; end < bytes.length; end++) {
+      expect(() => _fetch(bytes.sublist(0, end)), throwsFormatException,
+          reason: 'first batch $end');
+    }
+  });
+
+  for (final kind in ['control', 'empty']) {
+    test('Fetch $kind prefix advances only through the complete batch', () {
+      final prefix = _batch(
+          base: 20,
+          lastDelta: 4,
+          control: kind == 'control',
+          empty: kind == 'empty');
+      final tail = _batch(base: 25, lastDelta: 9);
+      for (var end = 1; end < tail.length; end++) {
+        final result = _fetch([...prefix, ...tail.take(end)]);
+        expect(result.records, isEmpty);
+        expect(result.lastBatchOffset, 24, reason: 'tail $end');
+      }
+      final complete = _fetch([...prefix, ...tail]);
+      expect(complete.records.single.offset, 25);
+      expect(complete.lastBatchOffset, 34);
+    });
+  }
+
+  test('Fetch does not treat malformed complete tails as partial data', () {
+    final prefix = _batch();
+    final corrupt = _batch(base: 20)..[23] ^= 1;
+    final badCount = _batch(base: 20);
+    ByteData.sublistView(badCount).setInt32(57, -1, Endian.big);
+    final badMagic = _batch(base: 20)..[16] = 3;
+    for (final bytes in [corrupt, _checksum(badCount), badMagic]) {
+      expect(() => _fetch([...prefix, ...bytes]), throwsFormatException);
+    }
+    final compressed = _batch(base: 20);
+    ByteData.sublistView(compressed).setInt16(21, 1, Endian.big);
+    expect(() => _fetch([...prefix, ..._checksum(compressed)]),
+        throwsUnsupportedError);
+  });
+
+  test('Fetch rejects malformed partial-tail headers when available', () {
+    final prefix = _batch();
+    final badLength = _batch(base: 20);
+    ByteData.sublistView(badLength).setInt32(8, -1, Endian.big);
+    expect(() => _fetch([...prefix, ...badLength.take(12)]),
+        throwsFormatException);
+    final negativeBase = _batch(base: -1);
+    expect(() => _fetch([...prefix, ...negativeBase.take(12)]),
+        throwsFormatException);
+    final badMagic = _batch(base: 20)..[16] = 3;
+    expect(
+        () => _fetch([...prefix, ...badMagic.take(17)]), throwsFormatException);
+  });
+
+  test('partial record-set handling does not tolerate a truncated response',
+      () {
+    final wire = _fetchBytes([..._batch(), ..._batch(base: 20).take(30)]);
+    expect(() => FetchResponse.fromBytes(wire.sublist(0, wire.length - 1)),
+        throwsFormatException);
+    expect(() => FetchResponse.fromBytes([...wire, 0]), throwsFormatException);
+  });
+
+  test('partial tail cannot consume the following partition response', () {
+    final wire = KafkaBytesBuilder()
+      ..addInt32(7)
+      ..addInt32(0)
+      ..addInt32(1)
+      ..addString('progress')
+      ..addInt32(2);
+    for (var partition = 0; partition < 2; partition++) {
+      wire
+        ..addInt32(partition)
+        ..addInt16(0)
+        ..addInt64(99)
+        ..addInt64(-1)
+        ..addInt32(-1)
+        ..addBytes(partition == 0
+            ? [..._batch(base: 10), ..._batch(base: 11).take(30)]
+            : _batch(base: 50));
+    }
+    final partitions =
+        FetchResponse.fromBytes(wire.takeBytes()).topics.single.partitions;
+    expect(partitions[0].records.single.offset, 10);
+    expect(partitions[0].lastBatchOffset, 10);
+    expect(partitions[1].records.single.offset, 50);
+    expect(partitions[1].lastBatchOffset, 50);
+  });
+
+  test('raw Fetch preserves broker errors and unavailable offset sentinels',
+      () {
+    final response = FetchResponse.fromBytes(
+        _fetchBytes(null, error: 9, watermark: -1, stable: -1));
+    final partition = response.topics.single.partitions.single;
+    expect(partition.errorCode, 9);
+    expect(partition.highWatermark, -1);
+    expect(partition.lastStableOffset, -1);
+    expect(partition.records, isEmpty);
+    expect(partition.lastBatchOffset, isNull);
+  });
+
+  test('read-uncommitted decoding does not clamp to earlier HWM or LSO', () {
+    // Kafka snapshots response positions before its independently bounded log
+    // read. Concurrent advancement can make the reported positions lag data.
+    final response = FetchResponse.fromBytes(
+        _fetchBytes(_batch(base: 100), watermark: 99, stable: -1));
+    final partition = response.topics.single.partitions.single;
+    expect(partition.records.single.offset, 100);
+    expect(partition.lastBatchOffset, 100);
+    expect(partition.highWatermark, 99);
+    expect(partition.lastStableOffset, -1);
   });
 
   test('CRC corruption and unsupported compression cannot report progress', () {

@@ -57,6 +57,7 @@ class _Peer {
   bool holdJoin = false, holdPositions = false, emptyAssignment = false;
   String? positionFailure;
   int storedOffset = 0;
+  List<int> Function(int offset, int partition)? recordSet;
   final fetches = <int>[];
   final joinReceived = Completer<void>();
   final positionsReceived = Completer<void>();
@@ -232,9 +233,10 @@ class _Peer {
                 ..addInt64(100)
                 ..addInt64(-1)
                 ..addInt32(-1)
-                ..addBytes(offset == storedOffset && storedOffset >= 0
-                    ? _batch(offset, p)
-                    : []);
+                ..addBytes(recordSet?.call(offset, p) ??
+                    (offset == storedOffset && storedOffset >= 0
+                        ? _batch(offset, p)
+                        : []));
             case 8:
               expect(version, 6);
               final group = r.readString(),
@@ -295,6 +297,23 @@ List<int> _batch(int offset, int partition) {
   ]);
   // Base offset is outside the CRC-protected payload.
   ByteData.sublistView(bytes).setInt64(0, offset);
+  return bytes;
+}
+
+Uint8List _progressBatch(int base, int lastDelta,
+    {String kind = 'normal', int count = 1}) {
+  var bytes = encodeRecordBatch([
+    for (var i = 0; i < count; i++) KafkaRecord(value: [i], timestamp: 0)
+  ]);
+  if (kind == 'empty') bytes = Uint8List.fromList(bytes.sublist(0, 61));
+  final data = ByteData.sublistView(bytes);
+  data
+    ..setInt64(0, base, Endian.big)
+    ..setInt32(8, bytes.length - 12, Endian.big)
+    ..setInt32(23, lastDelta, Endian.big);
+  if (kind == 'control') data.setInt16(21, 0x20, Endian.big);
+  if (kind == 'empty') data.setInt32(57, 0, Endian.big);
+  data.setUint32(17, crc32c(bytes.sublist(21)), Endian.big);
   return bytes;
 }
 
@@ -561,5 +580,113 @@ void main() {
         KafkaGroupConsumerStopReason.cancelled);
     expect(peer.commits, isEmpty);
     expect(peer.joins, 1);
+  });
+
+  for (final kind in ['normal', 'control', 'empty', 'inside batch']) {
+    test('managed $kind prefix ignores partial tail without skipping offsets',
+        () async {
+      final prefixEnd = kind == 'inside batch'
+          ? 2
+          : kind == 'normal'
+              ? 0
+              : 4;
+      peer.storedOffset = kind == 'inside batch' ? 1 : 0;
+      final prefix = _progressBatch(0, prefixEnd,
+          kind: kind, count: kind == 'inside batch' ? 3 : 1);
+      final tailBase = prefixEnd + 1;
+      final tail = _progressBatch(tailBase, 9);
+      peer.recordSet = (offset, _) => offset == peer.storedOffset
+          ? [...prefix, ...tail.take(30)]
+          : offset == tailBase
+              ? tail
+              : [];
+      peer.onCommit = (commit) => commit.reply();
+      final callbacks = <int>[];
+      final run = make().run((record) => callbacks.add(record.offset));
+      await _until(() =>
+          peer.fetches.contains(tailBase + 10) ||
+          consumer!.state == KafkaGroupConsumerState.closed);
+      consumer!.stop();
+      final result = await run.timeout(const Duration(seconds: 3));
+      expect(result.reason, KafkaGroupConsumerStopReason.cancelled);
+      expect(result.error, isNull);
+      expect(callbacks, [
+        if (kind == 'normal') 0,
+        if (kind == 'inside batch') ...[1, 2],
+        tailBase,
+      ]);
+      expect(peer.commits.map((c) => c.offsets), [
+        for (final offset in callbacks) {0: offset + 1}
+      ]);
+      expect(
+          peer.fetches.take(3), [peer.storedOffset, tailBase, tailBase + 10]);
+      expect(peer.joins, 1);
+      expect(peer.positionReads, 1);
+    });
+  }
+
+  for (final failure in [
+    'incomplete first',
+    'corrupt complete tail',
+    'invalid complete tail',
+    'unsupported complete tail'
+  ]) {
+    test('managed $failure delivers no callback or commit', () async {
+      final prefix = _progressBatch(0, 0);
+      final tail = _progressBatch(1, 0);
+      if (failure == 'corrupt complete tail') tail[23] ^= 1;
+      if (failure == 'invalid complete tail') {
+        ByteData.sublistView(tail).setInt32(57, -1, Endian.big);
+        ByteData.sublistView(tail)
+            .setUint32(17, crc32c(tail.sublist(21)), Endian.big);
+      }
+      if (failure == 'unsupported complete tail') {
+        ByteData.sublistView(tail).setInt16(21, 1, Endian.big);
+        ByteData.sublistView(tail)
+            .setUint32(17, crc32c(tail.sublist(21)), Endian.big);
+      }
+      peer.recordSet = (_, __) => failure == 'incomplete first'
+          ? prefix.sublist(0, 30)
+          : [...prefix, ...tail];
+      var callbacks = 0;
+      final result = await make().run((_) {
+        callbacks++;
+      }).timeout(const Duration(seconds: 3));
+      expect(result.reason, KafkaGroupConsumerStopReason.failure);
+      expect(
+          result.error,
+          failure == 'unsupported complete tail'
+              ? isA<UnsupportedError>()
+              : isA<FormatException>());
+      expect(callbacks, 0);
+      expect(peer.commits, isEmpty);
+      expect(peer.fetches, [0]);
+      expect(peer.joins, 1);
+      expect(peer.positionReads, 1);
+    });
+  }
+
+  test('native subscription refetches partial batch at its own starting offset',
+      () async {
+    final prefix = _progressBatch(0, 0), tail = _progressBatch(1, 0);
+    peer.recordSet = (offset, _) => offset == 0
+        ? [...prefix, ...tail.take(30)]
+        : offset == 1
+            ? tail
+            : [];
+    final client = KafkaClient(brokers: [peer.broker], maxReadRetries: 3);
+    try {
+      final records = await client
+          .subscribe('topic', startOffsets: {0: 0})
+          .take(2)
+          .toList()
+          .timeout(const Duration(seconds: 3));
+      expect(records.map((record) => record.offset), [0, 1]);
+      expect(peer.fetches, [0, 1]);
+      expect(peer.commits, isEmpty);
+      expect(peer.joins, 0);
+    } finally {
+      await client.close();
+    }
   });
 }

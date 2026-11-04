@@ -18,8 +18,11 @@ class FetchResponse extends KafkaResponse {
 
   /// Parses v4 bytes including correlation ID but excluding network size prefix.
   ///
-  /// Validates batch CRCs and structure. Unsupported compression fails explicitly.
-  /// Kafka partition error codes remain available in the returned response.
+  /// Validates complete batch CRCs and structure. A partial final batch after a
+  /// complete validated prefix is ignored, without advancing past that prefix.
+  /// A nonempty incomplete first batch still fails. Unsupported compression in
+  /// a complete batch fails explicitly. Kafka partition error codes remain
+  /// available in the returned response.
   factory FetchResponse.fromBytes(List<int> bytes) {
     final r = KafkaBytesReader.fromBytes(bytes);
     final correlation = r.readInt32(), throttle = r.readInt32();
@@ -42,7 +45,8 @@ class FetchResponse extends KafkaResponse {
           r.readInt64();
         }
         final records = r.readBytes();
-        final decoded = decodeRecordBatchesWithProgress(records ?? const []);
+        final decoded =
+            decodeFetchRecordBatchesWithProgress(records ?? const []);
         partitions.add(FetchPartitionResponse(
             index, error, watermark, stable, decoded.records,
             lastBatchOffset: decoded.lastBatchOffset));
