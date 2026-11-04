@@ -14,9 +14,23 @@ import run_tls_network_fault_integration as runner
 
 
 class TlsFaultRunnerTest(unittest.TestCase):
-    def exercise(self, unreadable=False):
+    def exercise(self, unreadable=False, resolved=True):
         with tempfile.TemporaryDirectory() as temporary:
             root = pathlib.Path(temporary)
+            checkout = root / 'checkout'
+            checkout.mkdir()
+            package_config = checkout / '.dart_tool/package_config.json'
+            test_entry = root / 'test-package/bin/test.dart'
+            if resolved:
+                # The Python-only job has no real Dart package resolution.
+                # Own every file the mocked runner needs instead of reading
+                # the developer checkout's ignored package_config/cache.
+                package_config.parent.mkdir()
+                test_entry.parent.mkdir(parents=True)
+                test_entry.touch()
+                package_config.write_text(json.dumps(dict(configVersion=2, packages=[
+                    dict(name='test', rootUri=test_entry.parent.parent.as_uri()),
+                ])))
             home = root / 'kafka'
             (home / 'libs').mkdir(parents=True)
             (home / 'libs/kafka-clients-4.0.2.jar').touch()
@@ -30,8 +44,10 @@ class TlsFaultRunnerTest(unittest.TestCase):
             process.wait.return_value = 0
             process.poll.return_value = 0
             captured = {}
+            launches = []
 
             def fake_test(*args, **kwargs):
+                launches.append((args[0], kwargs['cwd']))
                 env = kwargs['env']
                 for key in ('KAFKA_TLS_FAULT_USERNAME', 'KAFKA_TLS_FAULT_PASSWORD'):
                     captured[key] = env[key]
@@ -48,6 +64,7 @@ class TlsFaultRunnerTest(unittest.TestCase):
             saved = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM)}
             try:
                 with contextlib.ExitStack() as stack:
+                    stack.enter_context(patch.object(runner, 'ROOT', checkout))
                     stack.enter_context(patch.dict(os.environ, KAFKA_HOME=str(home), KAFKA_VERSION='4.0.2',
                                                    KAFKA_TLS_FAULT_RUN_ROOT=str(output)))
                     stack.enter_context(patch.object(runner, 'certificates', side_effect=fake_certificates))
@@ -68,15 +85,23 @@ class TlsFaultRunnerTest(unittest.TestCase):
                             runner.main()
                     else:
                         self.assertEqual(runner.main(), 1)
-                self.assertEqual(command.call_count, 2)
-                self.assertEqual(popen.call_count, 2 if unreadable else 1)
+                self.assertEqual(command.call_count, 2 if resolved else 0)
+                self.assertEqual(popen.call_count, (2 if unreadable else 1) if resolved else 0)
+                for arguments, cwd in launches:
+                    self.assertEqual(cwd, checkout)
+                    self.assertIn(f'--packages={package_config}', arguments)
+                    self.assertIn(str(test_entry), arguments)
                 result = json.loads(next(output.glob('result-*.json')).read_text())
                 self.assertEqual(result['exit_code'], 1)
                 if unreadable:
                     self.assertIn('injected log read failure', str(result['cleanup_errors']))
-                else:
+                elif resolved:
                     self.assertEqual(result['test_exit_code'], 1)
                     self.assertIn('second topic creation failed', result['failure'])
+                else:
+                    self.assertEqual(result['stage'], 'startup')
+                    self.assertIn('FileNotFoundError', result['failure'])
+                    self.assertIn('package_config.json', result['failure'])
                 for field in ('private_fixture_removed', 'owned_process_stopped',
                               'test_process_stopped', 'proxy_stopped', 'controls_stopped',
                               'ports_reusable', 'retained_output_secret_scan_passed'):
@@ -85,7 +110,7 @@ class TlsFaultRunnerTest(unittest.TestCase):
                 retained = ''.join(path.read_text() for path in output.iterdir())
                 for value in captured.values():
                     self.assertNotIn(value, retained)
-                if not unreadable:
+                if resolved and not unreadable:
                     self.assertIn('[REDACTED]', retained)
             finally:
                 for signum, handler in saved.items():
@@ -96,6 +121,9 @@ class TlsFaultRunnerTest(unittest.TestCase):
 
     def test_unreadable_diagnostics_does_not_skip_private_cleanup(self):
         self.exercise(unreadable=True)
+
+    def test_missing_package_config_stops_before_topic_or_test_commands(self):
+        self.exercise(resolved=False)
 
 
 if __name__ == '__main__':
