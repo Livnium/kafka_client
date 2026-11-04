@@ -8,6 +8,53 @@ import 'package:kafka_client/src/codec/byte_reader.dart';
 import 'package:kafka_client/src/codec/record_batch.dart';
 import 'package:test/test.dart';
 
+int get _addressInUseErrorCode => Platform.isWindows
+    ? 10048
+    : Platform.isMacOS || Platform.isIOS
+        ? 48
+        : 98;
+
+Future<void> _expectPortReleased(int port,
+    {Duration budget = const Duration(seconds: 3)}) async {
+  final elapsed = Stopwatch()..start();
+  while (true) {
+    late final ServerSocket rebound;
+    try {
+      rebound = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+    } on SocketException catch (error) {
+      if (error.osError?.errorCode != _addressInUseErrorCode ||
+          elapsed.elapsed >= budget) {
+        rethrow;
+      }
+      // Destroying a Socket initiates native close asynchronously. Also, a
+      // released ephemeral port can briefly be reused by another parallel test.
+      // Still require a real, exclusive bind within one monotonic budget.
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      if (elapsed.elapsed >= budget) rethrow;
+      continue;
+    }
+    await rebound.close();
+    return;
+  }
+}
+
+final class _BindFailures extends IOOverrides {
+  final Object failure;
+  int failures;
+  int attempts = 0;
+  _BindFailures(this.failure, this.failures);
+
+  @override
+  Future<ServerSocket> serverSocketBind(address, int port,
+      {int backlog = 0, bool v6Only = false, bool shared = false}) {
+    attempts++;
+    expect(shared, isFalse);
+    if (attempts <= failures) return Future<ServerSocket>.error(failure);
+    return super.serverSocketBind(address, port,
+        backlog: backlog, v6Only: v6Only, shared: shared);
+  }
+}
+
 // An owned loopback Kafka-shaped peer. Receipt is a send-count oracle, never
 // evidence of durable Kafka storage, rollback, or broker ownership.
 class _Commit {
@@ -224,19 +271,28 @@ class _Peer {
     }
   }
 
-  Future<void> close() async {
+  Future<void> close(
+      {Duration servingTimeout = const Duration(seconds: 3)}) async {
     final port = server.port;
-    await subscription.cancel();
-    await server.close();
-    for (final socket in sockets.toList()) {
-      socket.destroy();
+    // Cancelling the subscription closes the listener. Keep its endpoint
+    // reserved while owned serving work drains, without accepting new work.
+    subscription.pause();
+    try {
+      for (final socket in sockets.toList()) {
+        socket.destroy();
+      }
+      await Future.wait(tasks).timeout(servingTimeout);
+      expect(sockets, isEmpty);
+      expect(errors, isEmpty);
+    } finally {
+      try {
+        await server.close();
+      } finally {
+        await subscription.cancel();
+      }
     }
-    await Future.wait(tasks).timeout(const Duration(seconds: 3));
-    expect(sockets, isEmpty);
-    expect(errors, isEmpty);
     // Verify the owned listening endpoint was released, not merely unreferenced.
-    final rebound = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
-    await rebound.close();
+    await _expectPortReleased(port);
   }
 }
 
@@ -316,6 +372,135 @@ void main() {
     await listener?.cancel();
     await session.close().timeout(const Duration(seconds: 3));
     await peer.close();
+  });
+
+  test('port release probe waits for transient contention and closes its bind',
+      () async {
+    final held = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = held.port;
+    await held.close();
+    final busy = SocketException('injected address already in use',
+        osError:
+            OSError('injected address already in use', _addressInUseErrorCode));
+    final binds = _BindFailures(busy, 2);
+    await IOOverrides.runWithIOOverrides(
+        () => _expectPortReleased(port), binds);
+    expect(binds.attempts, 3);
+    // The successful attempt above used the real default exclusive bind.
+    // Its verification listener must itself have been closed.
+    final rebound = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+    await rebound.close();
+  });
+
+  test('port release probe does not reset its budget after repeated contention',
+      () async {
+    for (final failures in [1, 1 << 30]) {
+      final held = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final port = held.port;
+      await held.close();
+      final busy = SocketException('injected address already in use',
+          osError: OSError(
+              'injected address already in use', _addressInUseErrorCode));
+      final binds = _BindFailures(busy, failures);
+      try {
+        await expectLater(
+            IOOverrides.runWithIOOverrides(
+                    () => _expectPortReleased(port,
+                        budget: Duration(milliseconds: failures == 1 ? 1 : 30)),
+                    binds)
+                .timeout(const Duration(seconds: 1)),
+            throwsA(same(busy)));
+        // Scheduler suspension may consume the entire sustained-failure budget
+        // on its first delay. It must still fail with the original bind error.
+        if (failures == 1) expect(binds.attempts, 1);
+      } finally {
+        // A broken retry budget must not leave an endless synthetic failure loop.
+        binds.failures = 0;
+      }
+    }
+  });
+
+  test(
+      'port release probe fails if a listener remains bound through its budget',
+      () async {
+    final held = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    try {
+      await expectLater(
+          _expectPortReleased(held.port,
+                  budget: const Duration(milliseconds: 30))
+              .timeout(const Duration(seconds: 1)),
+          throwsA(isA<SocketException>()));
+    } finally {
+      await held.close();
+    }
+  });
+
+  for (final failure in [
+    const SocketException('injected non-address-in-use error',
+        osError: OSError('injected permission error', 13)),
+    StateError('injected non-socket error'),
+  ]) {
+    test('port release probe propagates $failure without retry', () async {
+      var attempts = 0;
+      final probe = IOOverrides.runZoned(
+        () => _expectPortReleased(12345),
+        serverSocketBind: (address, port,
+            {int backlog = 0, bool v6Only = false, bool shared = false}) {
+          attempts++;
+          expect(shared, isFalse);
+          throw failure;
+        },
+      );
+      await expectLater(probe, throwsA(same(failure)));
+      expect(attempts, 1);
+    });
+  }
+
+  test('peer keeps its listener reserved while owned serving work drains',
+      () async {
+    final owned = await _Peer.start();
+    final port = owned.server.port;
+    final serving = Completer<void>();
+    owned.tasks.add(serving.future);
+    final closing = owned.close();
+    final closed = expectLater(closing, completes);
+    ServerSocket? unexpected;
+    try {
+      expect(owned.subscription.isPaused, isTrue);
+      await expectLater(
+          ServerSocket.bind(InternetAddress.loopbackIPv4, port).then((socket) {
+            unexpected = socket;
+            return socket;
+          }),
+          throwsA(isA<SocketException>()));
+    } finally {
+      await unexpected?.close();
+      serving.complete();
+      await closed;
+    }
+  });
+
+  test('peer closes its listener even if serving work fails or times out',
+      () async {
+    for (final fail in [true, false]) {
+      final owned = await _Peer.start();
+      final port = owned.server.port;
+      final serving = Completer<void>();
+      owned.tasks.add(serving.future);
+      final error = StateError('injected serving failure');
+      final closed = expectLater(
+          owned.close(servingTimeout: const Duration(milliseconds: 30)),
+          throwsA(fail ? same(error) : isA<TimeoutException>()));
+      if (fail) serving.completeError(error);
+      try {
+        await closed;
+        final rebound =
+            await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+        await rebound.close();
+      } finally {
+        if (!serving.isCompleted) serving.complete();
+      }
+    }
   });
 
   test(
