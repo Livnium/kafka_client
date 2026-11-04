@@ -1,4 +1,4 @@
-# kafka_client — native Dart Kafka foundation
+# kafka_client - native Dart Kafka foundation
 
 A continuation of the original Dart TCP Kafka implementation, now with a tested
 produce/fetch foundation with validated TLS and optional SASL PLAIN authentication.
