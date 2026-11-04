@@ -4,10 +4,12 @@ import 'dart:math';
 import 'api/abstract/kafka_request.dart';
 import 'api/request/api0_produce_request.dart';
 import 'api/request/api1_fetch_request.dart';
+import 'api/request/api2_list_offsets_request.dart';
 import 'api/request/api18_api_vesions_request.dart';
 import 'api/request/api3_metadata_request.dart';
 import 'api/response/api0_produce_response.dart';
 import 'api/response/api1_fetch_response.dart';
+import 'api/response/api2_list_offsets_response.dart';
 import 'api/response/api18_api_versions_response.dart';
 import 'api/response/api3_metadata_response.dart';
 import 'broker/broker.dart';
@@ -22,6 +24,7 @@ import 'topic_subscription.dart';
 import 'transport.dart';
 import 'group_offsets.dart';
 import 'group_offsets_protocol.dart';
+import 'list_offsets.dart';
 
 /// Experimental native Kafka client with validated TLS and optional PLAIN SASL.
 /// TLS is never downgraded and SASL credentials are never sent without TLS.
@@ -1231,6 +1234,66 @@ class KafkaClient {
       }
     }
     return result;
+  }
+
+  /// Explicitly looks up one partition's earliest or latest position.
+  ///
+  /// Uses exact ListOffsets v2 with read-uncommitted isolation. Earliest is the
+  /// earliest retained log offset, which need not be zero. Latest is the
+  /// exclusive high watermark, not the last record's offset or the leader's
+  /// unreplicated log end. Returned timestamps can legitimately be -1.
+  ///
+  /// This read changes no cursor, assignment, stored offset or fallback policy.
+  /// It does not run automatically after a missing commit or out-of-range Fetch.
+  /// Positions can change between lookup and Fetch; retries observe a fresh
+  /// boundary. Errors and unavailable successful offsets never become zero.
+  ///
+  /// Topic/partition bounds are validated before discovery. Existing bounded
+  /// read retries refresh leader discovery; TLS bootstrap fallback retains its
+  /// explicit configuration, while Fetch-only TLS recovery does not apply.
+  /// ListOffsets v2 is broker-throttled; throttle metadata remains available.
+  /// Like ordinary Fetch, there is no per-operation cancellation token or total
+  /// deadline. Future.timeout does not cancel its work. Closing this client
+  /// stops pending requests and retry waits, including unrelated client work.
+  Future<ListOffsetsResponse> listOffsets(String topic,
+      {int partition = 0, required KafkaOffsetPosition position}) {
+    if (_closed) return Future.error(StateError('KafkaClient is closed'));
+    late ListOffsetsRequest query;
+    try {
+      query =
+          ListOffsetsRequest(topic, partition: partition, position: position);
+    } catch (error, stack) {
+      return Future.error(error, stack);
+    }
+    return _safeRetry(() async {
+      final broker = await _leader(query.topic, query.partition);
+      final result = await _sendChecked(
+          broker,
+          2,
+          2,
+          ListOffsetsRequest(query.topic,
+              partition: query.partition,
+              position: query.position)) as ListOffsetsResponse;
+      if (result.topics.length != 1 ||
+          result.topics.single.name != query.topic ||
+          result.topics.single.partitions.length != 1 ||
+          result.topics.single.partitions.single.partition != query.partition) {
+        throw const FormatException(
+            'ListOffsets response does not match requested partition');
+      }
+      final selected = result.topics.single.partitions.single;
+      if (selected.errorCode != 0) {
+        throw KafkaBrokerException(selected.errorCode, 'list offsets');
+      }
+      if (selected.offset < 0) {
+        throw const FormatException(
+            'Unavailable successful ListOffsets offset');
+      }
+      if (selected.timestamp != -1) {
+        throw const FormatException('Invalid ListOffsets boundary timestamp');
+      }
+      return result;
+    });
   }
 
   /// Fetch manually assigned partition at an explicit offset; no consumer groups.

@@ -53,6 +53,7 @@ Implemented high-level APIs deliberately use these versions:
 | Metadata | 0 | Bootstrap fallback; discover partition leaders |
 | Produce | 3 | Uncompressed magic-2 batches, `acks=-1/0/1` |
 | Fetch | 4 | Explicit partition and offset; read-uncommitted |
+| ListOffsets | 2 | Explicit earliest/latest lookup for one partition |
 | FindCoordinator | 2 | Group coordinator discovery, no membership |
 | OffsetFetch | 5 / opt-in 7 | Broker-stored next offsets; v7 requires stable reads |
 | OffsetCommit | 6 | Explicit manual commit, no automatic replay |
@@ -107,9 +108,24 @@ An empty response does not itself advance a position or prove the end of the log
 A quota-only reply has no topics and a positive `throttleTimeMs`. A one-shot
 Fetch returns it without waiting or retrying; respect that duration before your
 next call and retain the same offset. Subscriptions enforce this wait themselves.
-The client does not assign partitions, look up earliest/latest offsets or manage
-retention/out-of-range recovery. Separate explicit committed-offset methods are
+Fetch does not assign partitions, look up positions or manage retention/out-of-range
+recovery. Separate explicit earliest/latest and committed-offset methods are
 available; Fetch itself neither restores nor commits progress automatically.
+
+## Look up an explicit starting position
+
+```dart
+final lookup = await client.listOffsets('pre-created-topic',
+    partition: 0, position: KafkaOffsetPosition.earliest);
+final start = lookup.topics.single.partitions.single.offset;
+final fetched = await client.fetch('pre-created-topic', offset: start);
+```
+
+Earliest means the retained beginning, which may be greater than zero. Latest
+is the exclusive read-uncommitted high watermark, not the last record offset.
+This is a separate read, not an automatic missing-offset or out-of-range reset.
+Lookup and Fetch are not an atomic snapshot. Existing numeric subscription and
+managed-group fallback policies are unchanged. See [ListOffsets](doc/LIST_OFFSETS.md).
 
 ## Subscribe to explicit partitions
 
@@ -140,7 +156,7 @@ resource-limit and offset-out-of-range failures remain terminal after the
 existing Fetch policy. Strict TLS and all prior client defaults are unchanged.
 
 This is read-uncommitted consumption, without coordinated groups, automatic commits,
-ListOffsets, automatic partition discovery or retention recovery. Delivery is not
+automatic position lookup, automatic partition discovery or retention recovery. Delivery is not
 processing acknowledgement. Persist application checkpoints after successful
 work and supply them on restart; replays are possible. Empty polls never jump to
 the high watermark.

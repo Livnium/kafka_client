@@ -9,6 +9,7 @@ import 'package:test/test.dart';
 const _fixedVersions = {
   0: 3,
   1: 4,
+  2: 2,
   3: 0,
   8: 6,
   10: 2,
@@ -103,6 +104,16 @@ class _VersionPeer {
               ..addInt64(0)
               ..addInt32(-1)
               ..addBytes([]);
+          } else if (key == 2) {
+            b
+              ..addInt32(0)
+              ..addInt32(1)
+              ..addString('topic')
+              ..addInt32(1)
+              ..addInt32(0)
+              ..addInt16(0)
+              ..addInt64(-1)
+              ..addInt64(42);
           } else if (key == 11) {
             // A valid first-Join ID continuation response. Merely sending Join
             // is a membership mutation, so malformed capabilities must stop it.
@@ -151,8 +162,13 @@ class _Fixture {
 
   _VersionPeer target(String operation) =>
       operation == 'Metadata' ? bootstrap : leader;
-  int requiredKey(String operation) =>
-      {'Metadata': 3, 'Produce': 0, 'Fetch': 1, 'Group': 11}[operation]!;
+  int requiredKey(String operation) => {
+        'Metadata': 3,
+        'Produce': 0,
+        'Fetch': 1,
+        'ListOffsets': 2,
+        'Group': 11
+      }[operation]!;
 
   Future<Object?> run(String operation) async {
     switch (operation) {
@@ -164,6 +180,9 @@ class _Fixture {
         ]);
       case 'Fetch':
         return client.fetch('topic');
+      case 'ListOffsets':
+        return client.listOffsets('topic',
+            position: KafkaOffsetPosition.earliest);
       case 'Group':
         final driver = NativeClassicGroupDriver(
             client: client,
@@ -228,7 +247,13 @@ void main() {
     'inverted unknown range': (table, key) =>
         table.add(ApiVersion(32767, 2, 1)),
   };
-  for (final operation in ['Metadata', 'Produce', 'Fetch', 'Group']) {
+  for (final operation in [
+    'Metadata',
+    'Produce',
+    'Fetch',
+    'ListOffsets',
+    'Group'
+  ]) {
     for (final entry in malformed.entries) {
       test('$operation rejects ${entry.key} before application dispatch',
           () async {

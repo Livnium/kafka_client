@@ -13,6 +13,7 @@ export 'src/api/request/api0_produce_request.dart'
     show ProduceRequest, TopicData, PartitionData;
 export 'src/api/request/api1_fetch_request.dart'
     show FetchRequest, FetchTopic, FetchPartition;
+export 'src/api/request/api2_list_offsets_request.dart' show ListOffsetsRequest;
 export 'src/api/request/api3_metadata_request.dart' show MetadataRequest;
 export 'src/api/request/api18_api_vesions_request.dart' show ApiVersionsRequest;
 export 'src/api/response/api18_api_versions_response.dart'

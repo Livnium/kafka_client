@@ -22,6 +22,12 @@ export 'src/api/response/api0_produce_response.dart'
     show ProduceResponse, TopicResponse, PartitionResponse;
 export 'src/api/response/api1_fetch_response.dart'
     show FetchResponse, FetchTopicResponse, FetchPartitionResponse;
+export 'src/list_offsets.dart' show KafkaOffsetPosition;
+export 'src/api/response/api2_list_offsets_response.dart'
+    show
+        ListOffsetsResponse,
+        ListOffsetsTopicResponse,
+        ListOffsetsPartitionResponse;
 export 'src/api/response/api3_metadata_response.dart'
     show MetadataResponse, BrokerMetadata, TopicMetadata, PartitionMetadata;
 export 'src/security/security.dart'

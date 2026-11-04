@@ -1,5 +1,8 @@
 ## Unreleased native hardening
 
+- Add explicit earliest/latest partition lookup using ListOffsets v2, without new
+  dependencies or changes to numeric Fetch/subscription/group fallback policies.
+  This has deterministic protocol coverage, not a new real-broker qualification.
 - Snapshot caller-owned Produce record lists and Metadata topic selections before
   asynchronous discovery/retries; published 0.1.1 does not contain these changes.
 - Reject ambiguous leader routes and malformed Produce successes, with separate
