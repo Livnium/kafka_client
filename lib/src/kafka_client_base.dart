@@ -863,8 +863,12 @@ class KafkaClient {
   /// Read-only metadata retries transport failures within configured limits.
   /// Topic and partition error fields are returned unchanged, not converted
   /// into retryable exceptions. Callers must inspect those fields themselves.
-  Future<MetadataResponse> metadata([Set<String>? topics]) =>
-      _safeRetry(() => _metadataOnce(topics));
+  /// Selected topics are copied before I/O and retained across read retries.
+  Future<MetadataResponse> metadata([Set<String>? topics]) async {
+    if (_closed) throw StateError('KafkaClient is closed');
+    final snapshot = topics == null ? null : Set<String>.unmodifiable(topics);
+    return _safeRetry(() => _metadataOnce(snapshot));
+  }
 
   bool _groupReadRetryable(Object error) =>
       error is SocketException ||
@@ -1161,6 +1165,8 @@ class KafkaClient {
   ///
   /// Invalid scalar bounds or empty records fail before leader discovery.
   /// Partition and timeout use nonnegative signed INT32 bounds.
+  /// The record list is copied before discovery; later caller mutations do not
+  /// change the batch. Each KafkaRecord already owns immutable payload copies.
   /// This high-level method has no cancellation token or overall deadline.
   /// Applying Future.timeout does not cancel its underlying work.
   Future<ProduceResponse?> produce(String topic, List<KafkaRecord> records,
@@ -1176,15 +1182,16 @@ class KafkaClient {
       throw ArgumentError(
           'Invalid produce records, partition, acknowledgments, or timeout');
     }
+    final recordSnapshot = List<KafkaRecord>.unmodifiable(records);
     final broker = await _safeRetry(() => _leader(topic, partition));
     final result = await _sendChecked(
         broker,
         0,
         3,
         ProduceRequest(acks: acks, timeoutMs: timeoutMs, topicData: [
-          TopicData(
-              name: topic,
-              partitions: [PartitionData(index: partition, records: records)])
+          TopicData(name: topic, partitions: [
+            PartitionData(index: partition, records: recordSnapshot)
+          ])
         ])) as ProduceResponse?;
     if (result != null) {
       if (result.responses.length != 1 ||

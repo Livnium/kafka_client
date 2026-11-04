@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Owned Kafka 4.0.2 + loopback streaming fault proxy; no external services.
+"""Owned Kafka + loopback streaming fault proxy; no external services.
 
 Run with KAFKA_HOME and DART set. Optional -- <command> overrides the test.
 Private atomic file IPC controls only the owned proxy. Each connection uses two
@@ -20,6 +20,8 @@ import tempfile
 import threading
 import time
 import urllib.parse
+
+from kafka_distribution import selected_distribution
 
 from run_operational_integration import BrokerFixture, FileControl, ROOT
 
@@ -182,9 +184,7 @@ class FaultProxy:
 
 def main():
     os.umask(0o077)
-    home = pathlib.Path(os.environ.get('KAFKA_HOME', '')).resolve()
-    if not (home / 'libs/kafka-clients-4.0.2.jar').is_file():
-        raise SystemExit('KAFKA_HOME must be a verified Kafka 4.0.2 distribution')
+    home, kafka_version = selected_distribution()
     ports = [int(os.environ.get(key, default)) for key, default in (
         ('KAFKA_FAULT_DIRECT_PORT', '19592'), ('KAFKA_FAULT_CONTROLLER_PORT', '19593'),
         ('KAFKA_FAULT_PROXY_PORT', '19594'))]
@@ -317,7 +317,7 @@ def main():
         control_removed = not directory.exists()
         cleanup_ok = (stopped and test_stopped and proxy_stopped and data_removed
                       and control_removed and ports_reusable and not errors)
-        result = dict(exit_code=status if cleanup_ok else 1, test_exit_code=status,
+        result = dict(kafka_version=kafka_version, exit_code=status if cleanup_ok else 1, test_exit_code=status,
                       owned_process_stopped=stopped, test_process_stopped=test_stopped,
                       proxy_stopped=proxy_stopped, ports=ports, ports_reusable=ports_reusable,
                       data_removed=data_removed, control_removed=control_removed,

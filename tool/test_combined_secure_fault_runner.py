@@ -172,7 +172,7 @@ class RunnerTests(unittest.TestCase):
             (home / 'libs').mkdir(parents=True)
             (home / 'libs/kafka-clients-4.0.2.jar').touch()
             results = root / 'results'
-            stack.enter_context(patch.dict(runner.os.environ, KAFKA_HOME=str(home), KAFKA_COMBINED_RUN_ROOT=str(results), KAFKA_COMBINED_MODES=modes))
+            stack.enter_context(patch.dict(runner.os.environ, KAFKA_HOME=str(home), KAFKA_VERSION='4.0.2', KAFKA_COMBINED_RUN_ROOT=str(results), KAFKA_COMBINED_MODES=modes))
             stack.enter_context(patch.object(runner.sys, 'argv', ['runner', '--', '/not-executed']))
             stack.enter_context(patch.object(runner, 'certificates'))
             stack.enter_context(patch.object(runner, 'ProxiedCluster', FakeCluster))

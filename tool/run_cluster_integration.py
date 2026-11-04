@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Disposable three-node Kafka 4.0.2 cluster, RF=3 and three leaders.
+"""Disposable three-node Kafka qualification cluster, RF=3 and three leaders.
 
 KAFKA_HOME must name an independently SHA512-verified official distribution.
 All listeners are IPv4 loopback; only owned process groups may be terminated.
@@ -21,6 +21,8 @@ import sys
 import tempfile
 import threading
 import time
+
+from kafka_distribution import selected_distribution
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -175,9 +177,7 @@ class Control:
 
 def main():
     os.umask(0o077)
-    home = pathlib.Path(os.environ.get('KAFKA_HOME', '')).resolve()
-    if not (home / 'libs/kafka-clients-4.0.2.jar').is_file():
-        raise SystemExit('Set KAFKA_HOME to a SHA512-verified Kafka 4.0.2 distribution')
+    home, kafka_version = selected_distribution()
     probes = []
     try:
         for _ in range(7):
@@ -277,6 +277,7 @@ def main():
         if not stopped or not data_removed or control_dir.exists():
             cleanup_errors.append('Owned process/data/control cleanup is incomplete')
         (run / 'result.json').write_text(json.dumps({
+            'kafka_version': kafka_version,
             'exit_code': status if not cleanup_errors else 1,
             'test_exit_code': status, 'generations': cluster.generations,
             'ports': ports, 'owned_processes_stopped': stopped,

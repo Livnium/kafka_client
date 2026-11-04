@@ -21,6 +21,8 @@ import tempfile
 import threading
 import urllib.parse
 
+from kafka_distribution import selected_distribution
+
 from run_operational_integration import BrokerFixture, FileControl, ROOT
 from run_secure_cluster_integration import certificates
 from run_cluster_integration import terminate
@@ -167,9 +169,7 @@ def read_diagnostics(path):
 
 def main():
     os.umask(0o077)
-    home = pathlib.Path(os.environ.get('KAFKA_HOME', '')).resolve()
-    if not (home / 'libs/kafka-clients-4.0.2.jar').is_file():
-        raise SystemExit('KAFKA_HOME must be a verified Kafka 4.0.2 distribution')
+    home, kafka_version = selected_distribution()
     root = pathlib.Path(os.environ.get('KAFKA_TLS_FAULT_RUN_ROOT',
                                      str(ROOT / '.dart_tool/kafka-tls-fault'))).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -319,7 +319,7 @@ listener.name.sasl_ssl.plain.sasl.jaas.config=org.apache.kafka.common.security.p
             finally:
                 probe.close()
         cleanup_ok = stopped and test_stopped and proxy_stopped and controls_stopped and removed and reusable and not errors
-        result = dict(exit_code=status if cleanup_ok else 1, test_exit_code=status, stage=stage,
+        result = dict(kafka_version=kafka_version, exit_code=status if cleanup_ok else 1, test_exit_code=status, stage=stage,
                       failure=failure, owned_process_stopped=stopped, test_process_stopped=test_stopped,
                       proxy_stopped=proxy_stopped, controls_stopped=controls_stopped,
                       private_fixture_removed=removed, ports=ports, ports_reusable=reusable,

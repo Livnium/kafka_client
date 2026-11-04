@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Disposable loopback-only Kafka 4.0.2 fixture. Requires Java 17+, Kafka, Dart.
+# Disposable loopback-only Kafka qualification fixture. Requires Java 17+, Kafka, Dart.
 # Official setup: https://kafka.apache.org/40/getting-started/quickstart/
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-: "${KAFKA_HOME:?Set KAFKA_HOME to an extracted, SHA512-verified Kafka 4.0.2 distribution}"
-[[ -f "$KAFKA_HOME/libs/kafka-clients-4.0.2.jar" ]] || { echo "Expected Kafka 4.0.2 distribution" >&2; exit 1; }
+# Default 4.0.2; other stable 4.x releases require explicit KAFKA_VERSION.
+KAFKA_VERSION="$(python3 "$ROOT/tool/kafka_distribution.py")"
+export KAFKA_VERSION
 DART="${DART:-dart}"
 RUN_ROOT="${KAFKA_TEST_RUN_ROOT:-$ROOT/.dart_tool/kafka-integration}"
 mkdir -p "$RUN_ROOT"
 RUN_ROOT="$(cd "$RUN_ROOT" && pwd)"
 RUN_DIR="$(mktemp -d "$RUN_ROOT/run.XXXXXXXX")"
+printf '%s\n' "$KAFKA_VERSION" > "$RUN_DIR/kafka-version.txt"
 export LOG_DIR="$RUN_DIR/logs"
 export KAFKA_HEAP_OPTS='-Xms256m -Xmx512m'
 export KAFKA_OPTS="${KAFKA_OPTS:-} -Djava.io.tmpdir=$RUN_DIR"
@@ -84,7 +86,7 @@ done
 "$KAFKA_HOME/bin/kafka-topics.sh" --bootstrap-server "127.0.0.1:$KAFKA_TEST_PORT" --create --topic "$KAFKA_TEST_ORACLE_TOPIC" --partitions 1 --replication-factor 1 >> "$RUN_DIR/topic.log" 2>&1
 printf 'java-to-dart-नमस्ते\n' | "$KAFKA_HOME/bin/kafka-console-producer.sh" --bootstrap-server "127.0.0.1:$KAFKA_TEST_PORT" --topic "$KAFKA_TEST_ORACLE_TOPIC" > "$RUN_DIR/java-producer.log" 2>&1
 cat "$RUN_DIR/topic.log"
-echo "Kafka 4.0.2 ready on loopback $KAFKA_TEST_PORT; broker PID $PID"
+echo "Kafka $KAFKA_VERSION ready on loopback $KAFKA_TEST_PORT; broker PID $PID"
 cd "$ROOT"
 if [[ $# -gt 0 ]]; then
   "$@"

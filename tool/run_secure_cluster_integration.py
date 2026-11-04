@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Owned loopback Kafka 4.0.2 TLS/SASL-PLAIN three-node recovery fixture.
+"""Owned loopback Kafka TLS/SASL-PLAIN three-node recovery fixture.
 
 One-day test certificates and random synthetic credentials are local-only.
 Private configs, logs, keys and data are removed even on test failure. Only
@@ -19,6 +19,8 @@ import socket
 import subprocess
 import sys
 import tempfile
+
+from kafka_distribution import selected_distribution
 
 from run_cluster_integration import Cluster, Control, ROOT, terminate
 
@@ -79,9 +81,7 @@ def certificates(run, store_password):
 
 def main():
     os.umask(0o077)
-    home = pathlib.Path(os.environ.get('KAFKA_HOME', '')).resolve()
-    if not (home / 'libs/kafka-clients-4.0.2.jar').is_file():
-        raise SystemExit('Set KAFKA_HOME to a SHA512-verified Kafka 4.0.2 distribution')
+    home, kafka_version = selected_distribution()
     run_root = pathlib.Path(os.environ.get('KAFKA_SECURE_CLUSTER_RUN_ROOT',
                                           str(ROOT / '.dart_tool/kafka-secure-cluster')))
     run_root.mkdir(parents=True, exist_ok=True)
@@ -185,7 +185,7 @@ def main():
         removed = not run.exists()
         if not stopped or not test_stopped or not removed:
             cleanup_errors.append('Owned process/private fixture cleanup incomplete')
-        result = dict(exit_code=status if not cleanup_errors and failure is None else 1, test_exit_code=status,
+        result = dict(kafka_version=kafka_version, exit_code=status if not cleanup_errors and failure is None else 1, test_exit_code=status,
                       stage=stage, failure=failure, ports=ports,
                       generations=cluster.generations if cluster else {},
                       owned_processes_stopped=stopped, test_process_stopped=test_stopped,

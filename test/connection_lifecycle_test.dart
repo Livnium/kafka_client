@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:io';
 
 import 'package:kafka_client/kafka_protocol.dart';
@@ -18,29 +17,16 @@ class LifecycleProbe extends KafkaRequest {
 
 // A deterministic scheduling hook at application-request serialization, after
 // version validation but before transport dispatch.
-class SerializationHookTopics extends SetBase<String> {
+class SerializationHookRecord extends KafkaRecord {
   void Function()? hook;
-  SerializationHookTopics(this.hook);
+  SerializationHookRecord(this.hook) : super(value: [1], timestamp: 1000);
   @override
-  int get length => 1;
-  @override
-  Iterator<String> get iterator {
+  int get timestamp {
     final callback = hook;
     hook = null;
     callback?.call();
-    return ['topic'].iterator;
+    return 1000;
   }
-
-  @override
-  bool contains(Object? value) => value == 'topic';
-  @override
-  String? lookup(Object? value) => contains(value) ? 'topic' : null;
-  @override
-  bool add(String value) => throw UnsupportedError('read-only fixture');
-  @override
-  bool remove(Object? value) => throw UnsupportedError('read-only fixture');
-  @override
-  Set<String> toSet() => {'topic'};
 }
 
 void main() {
@@ -147,6 +133,7 @@ void main() {
     final negotiated = <Socket>{};
     var versionCalls = 0;
     var metadataCalls = 0;
+    var produceCalls = 0;
     final broker = await serve((socket, bytes) {
       if (bytes.length == 4) {
         probeReceived.complete();
@@ -162,17 +149,36 @@ void main() {
         negotiated.add(socket);
         response
           ..addInt16(0)
-          ..addInt32(1)
+          ..addInt32(2)
           ..addInt16(3)
           ..addInt16(0)
-          ..addInt16(0);
-      } else {
+          ..addInt16(0)
+          ..addInt16(0)
+          ..addInt16(3)
+          ..addInt16(3);
+      } else if (key == 3) {
         expect(negotiated.contains(socket), isTrue,
             reason: 'Metadata must use a version-checked physical connection');
         metadataCalls++;
         response
+          ..addInt32(1)
+          ..addInt32(1)
+          ..addString('127.0.0.1')
+          ..addInt32(socket.port)
+          ..addInt32(1)
+          ..addInt16(0)
+          ..addString('topic')
+          ..addInt32(1)
+          ..addInt16(0)
           ..addInt32(0)
-          ..addInt32(0);
+          ..addInt32(1)
+          ..addInt32(1)
+          ..addInt32(1)
+          ..addInt32(1)
+          ..addInt32(1);
+      } else {
+        produceCalls++;
+        fail('Retired connection must never transmit Produce');
       }
       socket.add(KafkaRequest.frame(response.takeBytes()));
     });
@@ -183,15 +189,19 @@ void main() {
         client.send(LifecycleProbe(), cancellationToken: token),
         throwsA(isA<KafkaCancelledException>()));
     await probeReceived.future;
-    // Retire the validated socket exactly as the next Metadata is serialized.
-    await expectLater(client.metadata(SerializationHookTopics(token.cancel)),
+    // Retire the validated socket exactly as Produce is serialized. A record
+    // getter preserves this post-negotiation hook even though input collections
+    // are now snapshotted before discovery or version negotiation.
+    await expectLater(
+        client.produce('topic', [SerializationHookRecord(token.cancel)]),
         throwsA(isA<KafkaConnectionException>()));
     await pending;
     expect(versionCalls, 1);
-    expect(metadataCalls, 1);
+    expect(metadataCalls, 2);
+    expect(produceCalls, 0);
     await client.metadata();
     expect(versionCalls, 2);
-    expect(metadataCalls, 2);
+    expect(metadataCalls, 3);
   });
 
   test('concurrent close callers share pending connection teardown', () async {

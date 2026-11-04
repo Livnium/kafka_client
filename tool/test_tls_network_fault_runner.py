@@ -48,7 +48,7 @@ class TlsFaultRunnerTest(unittest.TestCase):
             saved = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM)}
             try:
                 with contextlib.ExitStack() as stack:
-                    stack.enter_context(patch.dict(os.environ, KAFKA_HOME=str(home),
+                    stack.enter_context(patch.dict(os.environ, KAFKA_HOME=str(home), KAFKA_VERSION='4.0.2',
                                                    KAFKA_TLS_FAULT_RUN_ROOT=str(output)))
                     stack.enter_context(patch.object(runner, 'certificates', side_effect=fake_certificates))
                     stack.enter_context(patch.object(runner.BrokerFixture, 'format'))

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Local-only TLS/SASL-PLAIN fixture. Requires Java 17+, OpenSSL, Python, Kafka 4.0.2, Dart.
+# Local-only TLS/SASL-PLAIN fixture. Requires Java 17+, OpenSSL, Python, selected Kafka 4.x, Dart.
 # https://kafka.apache.org/40/security/authentication-using-sasl/
 # https://kafka.apache.org/40/security/encryption-and-authentication-using-ssl/
 set -euo pipefail
 umask 077
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-: "${KAFKA_HOME:?Set KAFKA_HOME to a SHA512-verified Kafka 4.0.2 distribution}"
-[[ -f "$KAFKA_HOME/libs/kafka-clients-4.0.2.jar" ]] || { echo 'Expected Kafka 4.0.2 distribution' >&2; exit 1; }
+# Default 4.0.2; other stable 4.x releases require explicit KAFKA_VERSION.
+KAFKA_VERSION="$(python3 "$ROOT/tool/kafka_distribution.py")"
+export KAFKA_VERSION
 DART="${DART:-dart}"
 RUN_ROOT="${KAFKA_SECURE_RUN_ROOT:-$ROOT/.dart_tool/kafka-security}"
 mkdir -p "$RUN_ROOT"
@@ -46,7 +47,8 @@ cleanup() {
   python3 - "$RUN_DIR" "$RESULT" "$status" "$STAGE" <<'PY'
 import os,pathlib,sys
 root,result,status,stage=sys.argv[1:]
-parts=[f'Kafka 4.0.2 security fixture: stage={stage}, exit={status}\n']
+version=os.environ['KAFKA_VERSION']
+parts=[f'Kafka {version} security fixture: stage={stage}, exit={status}\n']
 test=pathlib.Path(root)/'tests.log'
 if test.exists(): parts.append(test.read_text(errors='replace'))
 text=''.join(parts)
@@ -156,7 +158,24 @@ cd "$ROOT"
 if [[ $# -gt 0 ]]; then "$@" > "$RUN_DIR/tests.log" 2>&1; else
   "$DART" test test/security_integration_test.dart --reporter expanded > "$RUN_DIR/tests.log" 2>&1
   STAGE=java-oracle
-  "$KAFKA_HOME/bin/kafka-console-consumer.sh" --bootstrap-server "localhost:$KAFKA_SECURE_SASL_PORT" --consumer.config "$RUN_DIR/sasl-client.properties" --topic "$KAFKA_SECURE_ORACLE_TOPIC" --from-beginning --max-messages 2 --timeout-ms 10000 > "$RUN_DIR/oracle-consumer.txt" 2> "$RUN_DIR/oracle-consumer.log"
+  # Newer CLIs warn on stdout for the legacy option; old 4.x CLIs still need it.
+  # Kafka's normal --help exits 1. Accept it only with a recognized usage table.
+  CONSUMER_HELP_STATUS=0
+  "$KAFKA_HOME/bin/kafka-console-consumer.sh" --help > "$RUN_DIR/console-consumer-help.txt" 2>&1 || CONSUMER_HELP_STATUS=$?
+  if [[ "$CONSUMER_HELP_STATUS" != 0 && "$CONSUMER_HELP_STATUS" != 1 ]]; then
+    exit "$CONSUMER_HELP_STATUS"
+  fi
+  if ! grep -Eq -- '^Option[[:space:]]+Description[[:space:]]*$' "$RUN_DIR/console-consumer-help.txt"; then
+    echo 'Console consumer did not return recognized help output' >&2; exit 1
+  fi
+  if grep -Eq -- '^[[:space:]]*--command-config([[:space:]]|$)' "$RUN_DIR/console-consumer-help.txt"; then
+    CONSUMER_CONFIG_OPTION=--command-config
+  elif grep -Eq -- '^[[:space:]]*--consumer[.]config([[:space:]]|$)' "$RUN_DIR/console-consumer-help.txt"; then
+    CONSUMER_CONFIG_OPTION=--consumer.config
+  else
+    echo 'Console consumer help lists no supported config option' >&2; exit 1
+  fi
+  "$KAFKA_HOME/bin/kafka-console-consumer.sh" --bootstrap-server "localhost:$KAFKA_SECURE_SASL_PORT" "$CONSUMER_CONFIG_OPTION" "$RUN_DIR/sasl-client.properties" --topic "$KAFKA_SECURE_ORACLE_TOPIC" --from-beginning --max-messages 2 --timeout-ms 10000 > "$RUN_DIR/oracle-consumer.txt" 2> "$RUN_DIR/oracle-consumer.log"
   printf 'secure-java-to-dart-नमस्ते\nsecure-dart-to-java-नमस्ते\n' > "$RUN_DIR/oracle-expected.txt"
   diff -u "$RUN_DIR/oracle-expected.txt" "$RUN_DIR/oracle-consumer.txt" >> "$RUN_DIR/tests.log"
   echo 'Official Java SASL_SSL consumer verified Dart-produced record' >> "$RUN_DIR/tests.log"

@@ -369,7 +369,7 @@ class TopicRegistrationTest(unittest.TestCase):
                 child.wait.return_value = 0
                 child.poll.return_value = 0
                 with contextlib.ExitStack() as stack:
-                    stack.enter_context(mock.patch.dict(os.environ, KAFKA_HOME=str(home),
+                    stack.enter_context(mock.patch.dict(os.environ, KAFKA_HOME=str(home), KAFKA_VERSION='4.0.2',
                                                         KAFKA_OPERATIONAL_RUN_ROOT=str(root / 'runs')))
                     stack.enter_context(mock.patch.object(runner, 'BrokerFixture', side_effect=construct))
                     controls = stack.enter_context(mock.patch.object(runner, 'FileControl', side_effect=control))

@@ -14,12 +14,12 @@ import run_secure_cluster_integration as runner
 
 
 class SecureRunnerTest(unittest.TestCase):
-    def test_second_topic_failure_cannot_reuse_first_mode_success(self):
+    def exercise_second_topic_failure(self, version):
         with tempfile.TemporaryDirectory() as temporary:
             root = pathlib.Path(temporary)
             home = root / 'kafka'
             (home / 'libs').mkdir(parents=True)
-            (home / 'libs/kafka-clients-4.0.2.jar').touch()
+            (home / f'libs/kafka-clients-{version}.jar').touch()
             output = root / 'runs'
             cluster = Mock()
             cluster.processes = {}
@@ -47,7 +47,7 @@ class SecureRunnerTest(unittest.TestCase):
 
             saved = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM)}
             try:
-                with patch.dict(os.environ, KAFKA_HOME=str(home),
+                with patch.dict(os.environ, KAFKA_HOME=str(home), KAFKA_VERSION=version,
                                 KAFKA_SECURE_CLUSTER_RUN_ROOT=str(output)), \
                         patch.object(runner, 'certificates', side_effect=fake_certificates), \
                         patch.object(runner, 'SecureCluster', return_value=cluster), \
@@ -59,6 +59,7 @@ class SecureRunnerTest(unittest.TestCase):
                     self.assertEqual(runner.main(), 1)
                 self.assertEqual(popen.call_count, 1)
                 result = json.loads(next(output.glob('result-*.json')).read_text())
+                self.assertEqual(result['kafka_version'], version)
                 self.assertEqual(result['exit_code'], 1)
                 self.assertEqual(result['test_exit_code'], 1)
                 self.assertIn('second topic creation failed', result['failure'])
@@ -73,6 +74,12 @@ class SecureRunnerTest(unittest.TestCase):
             finally:
                 for signum, handler in saved.items():
                     signal.signal(signum, handler)
+
+    def test_second_topic_failure_cannot_reuse_first_mode_success(self):
+        self.exercise_second_topic_failure('4.0.2')
+
+    def test_non_default_release_is_recorded_on_failure(self):
+        self.exercise_second_topic_failure('4.4.0')
 
 
 if __name__ == '__main__':

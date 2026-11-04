@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Disposable Kafka 4.0.2 recovery/soak fixture (Linux; Python 3, Java 17+, Dart).
+"""Disposable Kafka recovery/soak qualification fixture (Linux; Python 3, Java 17+, Dart).
 
 Only controls its own broker process. The private file-control directory supports
 start/stop/crash/status, not arbitrary commands. No external cluster is touched.
@@ -16,6 +16,8 @@ import sys
 import tempfile
 import threading
 import time
+
+from kafka_distribution import selected_distribution
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -302,9 +304,7 @@ class FileControl:
 
 def main():
     os.umask(0o077)
-    home = pathlib.Path(os.environ.get('KAFKA_HOME', '')).resolve()
-    if not (home / 'libs/kafka-clients-4.0.2.jar').is_file():
-        raise SystemExit('Set KAFKA_HOME to a SHA512-verified official Kafka 4.0.2 distribution')
+    home, kafka_version = selected_distribution()
     port = int(os.environ.get('KAFKA_OPERATIONAL_PORT', '19292'))
     controller = int(os.environ.get('KAFKA_OPERATIONAL_CONTROLLER_PORT', '19293'))
     # Reject occupied or duplicate ports before spawning a broker.
@@ -403,7 +403,7 @@ def main():
         if control_dir.exists():
             attempt('control directory', lambda: shutil.rmtree(control_dir))
         (run / 'result.json').write_text(json.dumps(
-            {'exit_code': status, 'broker_generations': fixture.generation,
+            {'kafka_version': kafka_version, 'exit_code': status, 'broker_generations': fixture.generation,
              'ports': [port, controller], 'owned_process_stopped': stopped,
              'data_removed': not (run / 'data').exists(),
              'control_removed': not control_dir.exists(),

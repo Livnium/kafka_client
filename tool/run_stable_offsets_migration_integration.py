@@ -5,7 +5,7 @@ Owned three-node secure Kafka plus six bounded opaque loopback proxies.
 
 Only synthetic ephemeral credentials/certificates; all private fixture files are
 removed. Plaintext controller/admin/interbroker plumbing is local-only. Requires
-independently verified Kafka 4.0.2 and previously resolved local Dart packages.
+an independently verified Kafka distribution and resolved local Dart packages.
 No resolver, publication, external service or capacity certification is involved.
 KAFKA_COMBINED_MODES optionally isolates tls or sasl; default tls,sasl stops at
 the first failing mode. Isolated runs do not replace the default combined result.
@@ -24,6 +24,8 @@ import tempfile
 import threading
 import time
 import urllib.parse
+
+from kafka_distribution import selected_distribution
 
 from run_cluster_integration import ROOT, terminate
 from run_guarded_soak import Guard
@@ -283,9 +285,7 @@ def reusable_ports(ports):
 
 def main():
     os.umask(0o077)
-    home = pathlib.Path(os.environ.get('KAFKA_HOME', '')).resolve()
-    if not (home / 'libs/kafka-clients-4.0.2.jar').is_file():
-        raise SystemExit('KAFKA_HOME must be independently SHA512-verified Kafka 4.0.2')
+    home, kafka_version = selected_distribution()
     root = pathlib.Path(os.environ.get('KAFKA_COMBINED_RUN_ROOT',
                                      str(ROOT / '.dart_tool/kafka-combined-secure-fault'))).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -428,7 +428,7 @@ def main():
                       not guard.thread.is_alive() and not run.exists() and len(port_states) == len(ports)
                       and all(port_states.values()) and not errors)
         exit_code = status if status else (1 if failure or guard.reason or not cleanup_ok else 0)
-        result = dict(broker_diagnostics=diagnostic, exit_code=exit_code, test_exit_code=status, stage=stage, failure=failure,
+        result = dict(kafka_version=kafka_version, broker_diagnostics=diagnostic, exit_code=exit_code, test_exit_code=status, stage=stage, failure=failure,
             requested_modes=requested_modes, mode_results=mode_results, generations=cluster.generations if cluster else {},
             nodes={str(node): dict(running=cluster is not None and node in cluster.processes
                 and cluster.processes[node].poll() is None,
